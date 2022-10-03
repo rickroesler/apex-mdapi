@@ -106,11 +106,27 @@ public class MetadataService {
         private String[] apex_schema_type_info = new String[]{SOAP_M_URI,'true','false'};
         private String[] field_order_type_info = new String[]{'allOrNone'};
     }
+    public class LogInfo {
+        public String category;
+        public String level;
+        private String[] category_type_info = new String[]{'category',SOAP_M_URI,null,'1','1','false'};
+        private String[] level_type_info = new String[]{'level',SOAP_M_URI,null,'1','1','false'};
+        private String[] apex_schema_type_info = new String[]{SOAP_M_URI,'true','false'};
+        private String[] field_order_type_info = new String[]{'category','level'};
+    }
 
     public virtual class Metadata {
         public String fullName;
     }
 
+    public class readMetadata_element {
+        public String type_x;
+        public String[] fullNames;
+        private String[] type_x_type_info = new String[]{'type',SOAP_M_URI,null,'1','1','false'};
+        private String[] fullNames_type_info = new String[]{'fullNames',SOAP_M_URI,null,'0','-1','false'};
+        private String[] apex_schema_type_info = new String[]{SOAP_M_URI,'true','false'};
+        private String[] field_order_type_info = new String[]{'type_x','fullNames'};
+    }
     public class readMetadataResponse_element {
         public MetadataService.ReadResult result;
         private String[] result_type_info = new String[]{'result',SOAP_M_URI,null,'1','1','false'};
