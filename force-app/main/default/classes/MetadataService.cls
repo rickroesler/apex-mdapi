@@ -353,28 +353,6 @@ public class MetadataService {
         private String[] apex_schema_type_info = new String[]{SOAP_M_URI,'true','false'};
         private String[] field_order_type_info = new String[]{'description','endAddress','startAddress'};
     }
-    public class ProfileSessionSetting extends Metadata {
-        public String type = 'ProfileSessionSetting';
-        public String fullName;
-        private String[] fullName_type_info = new String[]{'fullName',SOAP_M_URI,null,'0','1','false'};
-        public Boolean externalCommunityUserIdentityVerif;
-        public Boolean forceLogout;
-        public String profile;
-        public String requiredSessionLevel;
-        public Boolean sessionPersistence;
-        public Integer sessionTimeout;
-        public Boolean sessionTimeoutWarning;
-        private String[] externalCommunityUserIdentityVerif_type_info = new String[]{'externalCommunityUserIdentityVerif',SOAP_M_URI,null,'1','1','false'};
-        private String[] forceLogout_type_info = new String[]{'forceLogout',SOAP_M_URI,null,'1','1','false'};
-        private String[] profile_type_info = new String[]{'profile',SOAP_M_URI,null,'1','1','false'};
-        private String[] requiredSessionLevel_type_info = new String[]{'requiredSessionLevel',SOAP_M_URI,null,'0','1','false'};
-        private String[] sessionPersistence_type_info = new String[]{'sessionPersistence',SOAP_M_URI,null,'1','1','false'};
-        private String[] sessionTimeout_type_info = new String[]{'sessionTimeout',SOAP_M_URI,null,'1','1','false'};
-        private String[] sessionTimeoutWarning_type_info = new String[]{'sessionTimeoutWarning',SOAP_M_URI,null,'1','1','false'};
-        private String[] apex_schema_type_info = new String[]{SOAP_M_URI,'true','false'};
-        private String[] type_att_info = new String[]{'xsi:type'};
-        private String[] field_order_type_info = new String[]{'fullName', 'externalCommunityUserIdentityVerif','forceLogout','profile','requiredSessionLevel','sessionPersistence','sessionTimeout','sessionTimeoutWarning'};
-    }
     public class ProfileFieldLevelSecurity {
         public Boolean editable;
         public String field;
