@@ -32,6 +32,14 @@ public class MetadataService {
 	
 	public static final String SOAP_M_URI = 'http://soap.sforce.com/2006/04/metadata';
     
+    public static MetadataPort createService() { 
+        MetadataPort service = new MetadataService.MetadataPort();
+        service.SessionHeader = new MetadataService.SessionHeader_element();
+        service.SessionHeader.sessionId = UserInfo.getSessionId();
+        service.timeout_x = 120000; // Max Allowable
+        return service;
+    }
+
 	public class MetadataPort {
         public String endpoint_x = URL.getOrgDomainUrl().toExternalForm() + '/services/Soap/m/42.0';
         public Map<String,String> inputHttpHeaders_x;
