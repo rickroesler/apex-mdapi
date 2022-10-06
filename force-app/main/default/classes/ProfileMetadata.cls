@@ -1,8 +1,9 @@
 public  class ProfileMetadata {
-    private static final Integer FIELD_PERMISSIONS_COUNT_LOWER_LIMIT = 20000;
-    private static final Integer FIELD_PERMISSIONS_COUNT_UPPER_LIMIT = 30000;
+    private static final Integer FIELD_PERMISSIONS_COUNT_LOWER_LIMIT = 18000;
+    private static final Integer MAX_CHUNK_SIZE = 10; // readMetadata() can read 10 max records
     private static final Double API_VERSION = 55.0;
-    
+    private static final Integer JSON_CHUNK_SIZE = 130000;
+
     public static void updateProfileMetadataRecords() {
         Map<Id, ProfileProperties> currentProfiles = getCurrentProfiles();
         Map<Id, ProfileProperties> savedProfiles = getSavedProfiles();
@@ -10,6 +11,106 @@ public  class ProfileMetadata {
         processDeletedProfiles(currentProfiles, savedProfiles);
         processNewProfiles(currentProfiles, savedProfiles);
         processExistingProfiles(currentProfiles, savedProfiles);
+        deleteAllPersistedRecords();
+    }
+
+    /**
+     * @returns List<List<String> where the total FieldPermissions count in each subarray
+     *                            is guaranteed to be less than FIELD_PERMISSIONS_COUNT_UPPER_LIMIT
+     * 
+    */
+    public static List<List<String>> getDynamicChunks() {
+        Map<Id, String> profilesToUpdate = getProfilesToUpdate();
+        Map<Id, Integer> fieldPermissionsCountByProfile = getFieldPermissionsCountByProfileId();
+
+        List<List<String>> dynamicChunks = new List<List<String>>();
+        Integer totalCount = 0;
+        List<String> fullNames = new List<String>();
+        for (Id profileId: fieldPermissionsCountByProfile.keySet()) {
+            Integer count = fieldPermissionsCountByProfile.get(profileId);
+            String fullName = profilesToUpdate.get(profileId);
+
+            // push the name to the current chunk if it doesn't exceed the size limit; go to the next profile
+            if (totalCount + count <= FIELD_PERMISSIONS_COUNT_LOWER_LIMIT && fullNames.size() < MAX_CHUNK_SIZE) {
+                totalCount += count;
+                fullNames.add(fullName);
+                continue;
+            } 
+            
+            // this chunk is full; push the chunk to the list and reset for the next chunk
+            if (!fullNames.isEmpty()) {
+                dynamicChunks.add(fullNames);
+                totalCount = 0;
+                fullNames = new List<String>();
+            }
+
+            // if the profile that pushed it over the limit is "big", make it its own chunk
+            // otherwise, push the "small" profile to the just-reinitialized chunk
+            if (count > FIELD_PERMISSIONS_COUNT_LOWER_LIMIT) {
+                dynamicChunks.add(new List<String>{ fullName });
+            } else {
+                totalCount += count;
+                fullNames.add(fullName);
+            }
+        }
+
+        // handle any remaining
+        if (!fullNames.isEmpty()) dynamicChunks.add(fullNames);
+
+        return dynamicChunks;
+    }
+
+    public void persistProfile(MetadataService.Profile rawProfile) {
+        Profile profile = new Profile(rawProfile);
+        String jsonProfile = JSON.serialize(profile, true); // true = suppress Object nulls
+        List<String> chunkedJson = chunkString(jsonProfile, JSON_CHUNK_SIZE);
+        
+        List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
+        Integer chunkNumber = 0;
+        for (String chunk: chunkedJson) {
+            Profile_Metadata_Part__b part = new Profile_Metadata_Part__b;
+                part.Full_Name__c = profile.fullName;
+                part.Chunk_Number__c = chunkNumber;
+                part.Chunk__c = chunkedJson[chunkNumber];
+            parts.add(part);
+            chunkNumber++;
+        }
+
+        List<Database.SaveResult> results = Database.insertImmediate(parts);
+        Boolean success = true;
+        for (Database.DeleteResult result: results) {
+            if (!result.isSuccess()) {
+                success = false;
+                for (Database.Error e: result.getErrors()) {
+                    System.debug('Error inserting BigObject records: ' + e.getStatusCode() + ': ' + e.getMessage());
+                }
+            }
+        }
+
+        if (success) {
+            Profile_Metadata__c record = [SELECT Id, Last_Saved_Datetime__c
+                                            FROM Profile_Metadata__c
+                                           WHERE Name = :profile.fullName];
+            record.Last_Saved_Datetime__c = Datetime.now();
+            update record;
+        }
+    }
+
+    public void markTooBig(List<String> fullNames) {
+        List<Profile_Metadata__c> profiles = [SELECT Id, Is_Too_Large_To_Process__c
+                                                FROM Profile_Metadata__c
+                                               WHERE Name IN :fullNames];
+
+        if (profiles.size() != fullNames.size()) {
+            system.debug('requested: ' + fullNames + '; received: ' + profiles);
+            return;
+        }
+
+        for (Profile_Metadata__c profile: profiles) {
+            profile.Is_Too_Large_To_Process__c = true;
+        }
+
+        update.profiles;
     }
 
     private static void processDeletedProfiles(Map<Id, ProfileProperties> currentProfiles, Map<Id, ProfileProperties> savedProfiles) {
@@ -29,11 +130,8 @@ public  class ProfileMetadata {
         // make a list of fullnames of the new profiles
         // select saved profiles that are deleted with those fullnames
         // if there's a match handle those ids/fullnames separately
-        system.debug(currentProfiles.keySet());
-        system.debug(savedProfiles.keySet());
         Set<Id> newIds = currentProfiles.keySet().clone();
         newIds.removeAll(savedProfiles.keySet());
-        system.debug(newIds);
         List<Profile_Metadata__c> profiles = new List<Profile_Metadata__c>();
         for (Id newId: newIds) {
             Profile_Metadata__c profile = new Profile_Metadata__c();
@@ -61,8 +159,33 @@ public  class ProfileMetadata {
         update profiles;
     }
 
-    public static List<List<String>> getDynamicChunks() {
-        return null;
+    /**
+     * returns Map<Id, String> where Id is a Profile Id whose Last_Saved_Datetime < Last_Modified_Datetime
+     *                           and String is the Profiles fullName
+     */
+    private static Map<Id, String> getProfilesToUpdate() {
+        Map<Id, String> profileIdsToUpdate = new Map<Id, String>();
+        for (Profile_Metadata__c profile: [SELECT Profile_Id__c, Name,
+                                                  Last_Saved_Datetime__c, Last_Modified_Datetime__c
+                                             FROM Profile_Metadata__c]) {
+            if (profile.Last_Saved_Datetime__c == null || profile.Last_Saved_Datetime__c < profile.Last_Modified_Datetime__c) {
+                profileIdsToUpdate.put(profile.Profile_Id__c, profile.Name);
+            }
+        }
+        return profileIdsToUpdate;
+    }
+
+    private static void deleteAllPersistedRecords() {
+        List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
+        parts.addAll([SELECT Full_Name__c, Chunk_Number__c FROM Profile_Metadata_Part__b]);
+        List<Database.DeleteResult> results = Database.deleteImmediate(parts);
+        for (Database.DeleteResult result: results) {
+            if (!result.isSuccess()) {
+                for (Database.Error e: result.getErrors()) {
+                    System.debug('Error deleting BigObject records: ' + e.getStatusCode() + ': ' + e.getMessage());
+                }
+            }
+        }
     }
 
     /**
@@ -97,7 +220,7 @@ public  class ProfileMetadata {
         for (MetadataService.FileProperties file: files) {
             ProfileProperties profile = new ProfileProperties();
                 profile.profileId = file.id;
-                profile.fullName = file.fullName;
+                profile.fullName = EncodingUtil.urlDecode(file.fullName, 'UTF-8');
                 profile.lastModifiedDatetime = file.lastModifiedDate;
             currentProfiles.put(profile.profileId, profile);
         }
@@ -128,12 +251,13 @@ public  class ProfileMetadata {
         return savedProfiles;
     }
 
-    public static void saveAttachment(Id profileMetadataId, Id profileId, String jsonProfileMetadata) {
-        Attachment attachment = new Attachment();
-            attachment.Body = Blob.valueOf(jsonProfileMetadata);
-            attachment.Name = String.valueOf(profileId + '.json');
-            attachment.ParentId = '0012900000alyvlAAA'; 
-        insert attachment;
+    private List<String> chunkString(String s, Integer chunkSize) {
+        List<String> chunkedString = new List<String>();
+        do {
+            chunkedString.add(s.left(chunkSize));
+            s = s.length() < chunkSize ? '' : s.substring(chunkSize);
+        } while (s.length() > 0);
+        return chunkedString;
     }
 
     class ProfileProperties {
