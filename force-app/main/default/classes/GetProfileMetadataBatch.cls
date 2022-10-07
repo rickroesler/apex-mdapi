@@ -2,6 +2,7 @@ public with sharing class GetProfileMetadataBatch
     implements Database.Batchable<List<String>>, Database.AllowsCallouts, Database.Stateful {
 
     private List<List<String>> timedOutChunks;
+    private Map<String, Datetime> lastSavedDatetimes = new Map<String, Datetime>();
 
     public GetProfileMetadataBatch() {
         this.timedOutChunks = new List<List<String>>();
@@ -40,8 +41,10 @@ public with sharing class GetProfileMetadataBatch
             MetadataService.ReadProfileResult result = (MetadataService.ReadProfileResult) service.readMetadata('Profile', fullNames);
             List<MetadataService.Profile> profiles = (List<MetadataService.Profile>) result.getRecords();
             for (MetadataService.Profile rawProfile: profiles) {
-                
-                ProfileMetadata.persistProfile(profile);
+                Boolean success = ProfileMetadata.persistProfile(rawProfile);
+                if (success) {
+                    lastSavedDatetimes.put(rawProfile.fullName, Datetime.now());
+                }
             }    
         } catch (CalloutException e) {
             system.debug('WebService Callout Exception: ' + e.getMessage());
@@ -52,6 +55,8 @@ public with sharing class GetProfileMetadataBatch
     }
 
     public void finish(Database.BatchableContext ctx){
+        ProfileMetadata.persistLastSavedDatetimes(this.lastSavedDatetimes);
+        
         if (this.timedOutChunks.isEmpty()) {
             // post platform event
             system.debug('finished processing');

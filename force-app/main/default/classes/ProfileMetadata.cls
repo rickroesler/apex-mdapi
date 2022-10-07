@@ -8,10 +8,11 @@ public  class ProfileMetadata {
         Map<Id, ProfileProperties> currentProfiles = getCurrentProfiles();
         Map<Id, ProfileProperties> savedProfiles = getSavedProfiles();
 
+        deleteAllPersistedRecords();
+
         processDeletedProfiles(currentProfiles, savedProfiles);
         processNewProfiles(currentProfiles, savedProfiles);
         processExistingProfiles(currentProfiles, savedProfiles);
-        deleteAllPersistedRecords();
     }
 
     /**
@@ -60,7 +61,7 @@ public  class ProfileMetadata {
         return dynamicChunks;
     }
 
-    public void persistProfile(MetadataService.Profile rawProfile) {
+    public static Boolean persistProfile(MetadataService.Profile rawProfile) {
         Profile profile = new Profile(rawProfile);
         String jsonProfile = JSON.serialize(profile, true); // true = suppress Object nulls
         List<String> chunkedJson = chunkString(jsonProfile, JSON_CHUNK_SIZE);
@@ -68,7 +69,7 @@ public  class ProfileMetadata {
         List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
         Integer chunkNumber = 0;
         for (String chunk: chunkedJson) {
-            Profile_Metadata_Part__b part = new Profile_Metadata_Part__b;
+            Profile_Metadata_Part__b part = new Profile_Metadata_Part__b();
                 part.Full_Name__c = profile.fullName;
                 part.Chunk_Number__c = chunkNumber;
                 part.Chunk__c = chunkedJson[chunkNumber];
@@ -78,7 +79,7 @@ public  class ProfileMetadata {
 
         List<Database.SaveResult> results = Database.insertImmediate(parts);
         Boolean success = true;
-        for (Database.DeleteResult result: results) {
+        for (Database.SaveResult result: results) {
             if (!result.isSuccess()) {
                 success = false;
                 for (Database.Error e: result.getErrors()) {
@@ -87,16 +88,20 @@ public  class ProfileMetadata {
             }
         }
 
-        if (success) {
-            Profile_Metadata__c record = [SELECT Id, Last_Saved_Datetime__c
-                                            FROM Profile_Metadata__c
-                                           WHERE Name = :profile.fullName];
-            record.Last_Saved_Datetime__c = Datetime.now();
-            update record;
-        }
+        return success;
     }
 
-    public void markTooBig(List<String> fullNames) {
+    public static void persistLastSavedDatetimes(Map<String, Datetime> lastSavedDatetimes) {
+        List<Profile_Metadata__c> records = [SELECT Id, Name, Last_Saved_Datetime__c
+                                               FROM Profile_Metadata__c
+                                              WHERE Name IN :lastSavedDatetimes.keySet()];
+        for (Profile_Metadata__c record: records) {
+            record.Last_Saved_Datetime__c = lastSavedDatetimes.get(record.Name);
+        }
+        update records;
+    }
+
+    public static void markTooBig(List<String> fullNames) {
         List<Profile_Metadata__c> profiles = [SELECT Id, Is_Too_Large_To_Process__c
                                                 FROM Profile_Metadata__c
                                                WHERE Name IN :fullNames];
@@ -110,7 +115,7 @@ public  class ProfileMetadata {
             profile.Is_Too_Large_To_Process__c = true;
         }
 
-        update.profiles;
+        update profiles;
     }
 
     private static void processDeletedProfiles(Map<Id, ProfileProperties> currentProfiles, Map<Id, ProfileProperties> savedProfiles) {
@@ -178,6 +183,9 @@ public  class ProfileMetadata {
     private static void deleteAllPersistedRecords() {
         List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
         parts.addAll([SELECT Full_Name__c, Chunk_Number__c FROM Profile_Metadata_Part__b]);
+
+        if (parts.isEmpty()) return;
+
         List<Database.DeleteResult> results = Database.deleteImmediate(parts);
         for (Database.DeleteResult result: results) {
             if (!result.isSuccess()) {
@@ -251,7 +259,7 @@ public  class ProfileMetadata {
         return savedProfiles;
     }
 
-    private List<String> chunkString(String s, Integer chunkSize) {
+    private static List<String> chunkString(String s, Integer chunkSize) {
         List<String> chunkedString = new List<String>();
         do {
             chunkedString.add(s.left(chunkSize));
