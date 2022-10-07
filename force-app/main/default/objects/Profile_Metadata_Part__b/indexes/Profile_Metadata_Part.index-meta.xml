@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Index xmlns="http://soap.sforce.com/2006/04/metadata">
-    <fullName>Profile_Part</fullName>
+    <fullName>Profile_Metadata_Part</fullName>
     <fields>
-        <name>Profile_Id__c</name>
+        <name>Full_Name__c</name>
         <sortDirection>ASC</sortDirection>
     </fields>
     <fields>
         <name>Chunk_Number__c</name>
         <sortDirection>ASC</sortDirection>
     </fields>
-    <label>Profile Part</label>
+    <label>Profile Metadata Part</label>
 </Index>
