@@ -22,12 +22,12 @@ public  class ProfileMetadata {
     */
     public static List<List<String>> getDynamicChunks() {
         Map<Id, String> profilesToUpdate = getProfilesToUpdate();
-        Map<Id, Integer> fieldPermissionsCountByProfile = getFieldPermissionsCountByProfileId();
+        Map<Id, Integer> fieldPermissionsCountByProfile = getFieldPermissionsCountByProfileId(profilesToUpdate.keySet());
 
         List<List<String>> dynamicChunks = new List<List<String>>();
         Integer totalCount = 0;
         List<String> fullNames = new List<String>();
-        for (Id profileId: fieldPermissionsCountByProfile.keySet()) {
+        for (Id profileId: profilesToUpdate.keySet()) {
             Integer count = fieldPermissionsCountByProfile.get(profileId);
             String fullName = profilesToUpdate.get(profileId);
 
@@ -92,22 +92,22 @@ public  class ProfileMetadata {
     }
 
     public static void persistLastSavedDatetimes(Map<String, Datetime> lastSavedDatetimes) {
-        List<Profile_Metadata__c> records = [SELECT Id, Name, Last_Saved_Datetime__c
+        List<Profile_Metadata__c> records = [SELECT Id, Encoded_FullName__c, Last_Saved_Datetime__c
                                                FROM Profile_Metadata__c
-                                              WHERE Name IN :lastSavedDatetimes.keySet()];
+                                              WHERE Encoded_FullName__c IN :lastSavedDatetimes.keySet()];
         for (Profile_Metadata__c record: records) {
-            record.Last_Saved_Datetime__c = lastSavedDatetimes.get(record.Name);
+            record.Last_Saved_Datetime__c = lastSavedDatetimes.get(record.Encoded_FullName__c);
         }
         update records;
     }
 
-    public static void markTooBig(List<String> fullNames) {
+    public static void markTooBig(List<String> encodedFullNames) {
         List<Profile_Metadata__c> profiles = [SELECT Id, Is_Too_Large_To_Process__c
                                                 FROM Profile_Metadata__c
-                                               WHERE Name IN :fullNames];
+                                               WHERE Encoded_FullName__c IN :encodedFullNames];
 
-        if (profiles.size() != fullNames.size()) {
-            system.debug('requested: ' + fullNames + '; received: ' + profiles);
+        if (profiles.size() != encodedFullNames.size()) {
+            system.debug('requested: ' + encodedFullNames + '; received: ' + profiles);
             return;
         }
 
@@ -121,6 +121,9 @@ public  class ProfileMetadata {
     private static void processDeletedProfiles(Map<Id, ProfileProperties> currentProfiles, Map<Id, ProfileProperties> savedProfiles) {
         Set<Id> deletedIds = savedProfiles.keySet().clone();
         deletedIds.removeAll(currentProfiles.keySet());
+
+        if (deletedIds.isEmpty()) return;
+
         List<Profile_Metadata__c> profiles = [SELECT Id, Is_Deleted__c 
                                                 FROM Profile_Metadata__c
                                                WHERE Profile_Id__c IN :deletedIds];
@@ -139,10 +142,12 @@ public  class ProfileMetadata {
         newIds.removeAll(savedProfiles.keySet());
         List<Profile_Metadata__c> profiles = new List<Profile_Metadata__c>();
         for (Id newId: newIds) {
+            ProfileProperties currentProfile = currentProfiles.get(newId);
             Profile_Metadata__c profile = new Profile_Metadata__c();
                 profile.Profile_Id__c = newId;
-                profile.Last_Modified_Datetime__c = currentProfiles.get(newId).lastModifiedDatetime;
-                profile.Name = currentProfiles.get(newId).fullName;
+                profile.Last_Modified_Datetime__c = currentProfile.lastModifiedDatetime;
+                profile.Name = currentProfile.fullName;
+                profile.Encoded_FullName__c = currentProfile.encodedFullName;
                 profile.Is_Deleted__c = false;
                 profile.Last_Saved_Datetime__c = null;
             profiles.add(profile);
@@ -157,7 +162,9 @@ public  class ProfileMetadata {
                                                 FROM Profile_Metadata__c
                                                WHERE Profile_Id__c IN :existingIds];
         for (Profile_Metadata__c profile: profiles) {
-            profile.Name = currentProfiles.get(profile.Profile_Id__c).fullName;
+            ProfileProperties currentProfile = currentProfiles.get(profile.Profile_Id__c);
+            profile.Name = currentProfile.fullName;
+            profile.Encoded_FullName__c = currentProfile.encodedFullName;
             profile.Last_Modified_Datetime__c = currentProfiles.get(profile.Profile_Id__c).lastModifiedDatetime;
             profile.Is_Deleted__c = false;
         }
@@ -170,11 +177,11 @@ public  class ProfileMetadata {
      */
     private static Map<Id, String> getProfilesToUpdate() {
         Map<Id, String> profileIdsToUpdate = new Map<Id, String>();
-        for (Profile_Metadata__c profile: [SELECT Profile_Id__c, Name,
+        for (Profile_Metadata__c profile: [SELECT Profile_Id__c, Encoded_FullName__c,
                                                   Last_Saved_Datetime__c, Last_Modified_Datetime__c
                                              FROM Profile_Metadata__c]) {
             if (profile.Last_Saved_Datetime__c == null || profile.Last_Saved_Datetime__c < profile.Last_Modified_Datetime__c) {
-                profileIdsToUpdate.put(profile.Profile_Id__c, profile.Name);
+                profileIdsToUpdate.put(profile.Profile_Id__c, profile.Encoded_FullName__c);
             }
         }
         return profileIdsToUpdate;
@@ -200,11 +207,11 @@ public  class ProfileMetadata {
      * returns Map<Id, Integer> where Id == Salesforce Profile Id
      *                             count == the number of FieldPermissions in the profile
      */
-    private static Map<Id, Integer> getFieldPermissionsCountByProfileId() {
+    private static Map<Id, Integer> getFieldPermissionsCountByProfileId(Set<Id> profileIds) {
         Map<Id, Integer> fieldPermissionsCountByProfileId = new Map<Id, Integer>();
         for (AggregateResult result: [SELECT COUNT(Id) FieldPermissionsCount, Parent.ProfileId
                                         FROM FieldPermissions
-                                       WHERE Parent.ProfileId != NULL
+                                       WHERE Parent.ProfileId IN :profileIds
                                     GROUP BY Parent.ProfileId
                                     ORDER BY COUNT(Id) ASC]) {
             fieldPermissionsCountByProfileId.put((Id) result.get('ProfileId'), (Integer) result.get('FieldPermissionsCount'));
@@ -229,6 +236,7 @@ public  class ProfileMetadata {
             ProfileProperties profile = new ProfileProperties();
                 profile.profileId = file.id;
                 profile.fullName = EncodingUtil.urlDecode(file.fullName, 'UTF-8');
+                profile.encodedFullName = file.fullName;
                 profile.lastModifiedDatetime = file.lastModifiedDate;
             currentProfiles.put(profile.profileId, profile);
         }
@@ -242,7 +250,7 @@ public  class ProfileMetadata {
     private static Map<Id, ProfileProperties> getSavedProfiles() {
         Map<Id, ProfileProperties> savedProfiles = new Map<Id, ProfileProperties>();
 
-        List<Profile_Metadata__c> profiles = [SELECT Id, Name, Profile_Id__c, Is_Deleted__c, 
+        List<Profile_Metadata__c> profiles = [SELECT Id, Name, Encoded_FullName__c, Profile_Id__c, Is_Deleted__c, 
                                                      Last_Saved_Datetime__c, Last_Modified_Datetime__c
                                                 FROM Profile_Metadata__c];
         
@@ -251,6 +259,7 @@ public  class ProfileMetadata {
                 profile.profileMetadataId = p.Id;
                 profile.profileId = p.Profile_Id__c;
                 profile.fullName = p.Name;
+                profile.encodedFullName = p.Encoded_FullName__c;
                 profile.lastSavedDatetime = p.Last_Saved_Datetime__c;
                 profile.lastModifiedDatetime = p.Last_Modified_Datetime__c;
                 profile.isDeleted = p.Is_Deleted__c;
@@ -271,6 +280,7 @@ public  class ProfileMetadata {
     class ProfileProperties {
         Id profileMetadataId;
         String fullName;
+        String encodedFullName;
         Id profileId;
         Boolean isDeleted;
         Datetime lastSavedDatetime;

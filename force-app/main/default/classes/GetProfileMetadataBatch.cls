@@ -15,16 +15,20 @@ public with sharing class GetProfileMetadataBatch
     public List<List<String>> start(Database.BatchableContext ctx) {
         List<List<String>> dynamicChunks = new List<List<String>>();
 
+        Boolean isRetry; // for testing
         if (timedOutChunks.isEmpty()) {
             ProfileMetadata.updateProfileMetadataRecords();
             dynamicChunks = ProfileMetadata.getDynamicChunks();
+            isRetry = false; // for testing
         } else {
             dynamicChunks.addAll(this.timedOutChunks);
             this.timedOutChunks.clear();
+            isRetry = true; // for testing
         }
 
+        if (!isRetry) return new List<List<String>>{ dynamicChunks[0], dynamicChunks[1], dynamicChunks[2] }; // for testing
         return dynamicChunks;
-        // return new List<List<String>>{ dynamicChunks[0], dynamicChunks[1], dynamicChunks[2] };
+        
     }
 
     public void execute(Database.BatchableContext ctx, List<List<String>> chunks){
@@ -34,21 +38,21 @@ public with sharing class GetProfileMetadataBatch
             system.debug('chunk size error: ' + chunks.size());
             return;
         }
-        List<String> fullNames = chunks[0];
+        List<String> encodedFullNames = chunks[0];
 
         MetadataService.MetadataPort service = MetadataService.createService();
         try {
-            MetadataService.ReadProfileResult result = (MetadataService.ReadProfileResult) service.readMetadata('Profile', fullNames);
+            MetadataService.ReadProfileResult result = (MetadataService.ReadProfileResult) service.readMetadata('Profile', encodedFullNames);
             List<MetadataService.Profile> profiles = (List<MetadataService.Profile>) result.getRecords();
             for (MetadataService.Profile rawProfile: profiles) {
                 Boolean success = ProfileMetadata.persistProfile(rawProfile);
                 if (success) {
-                    lastSavedDatetimes.put(rawProfile.fullName, Datetime.now());
+                    lastSavedDatetimes.put(rawProfile.fullName, Datetime.now());  // this is the encoded fullName
                 }
             }    
         } catch (CalloutException e) {
             system.debug('WebService Callout Exception: ' + e.getMessage());
-            this.timedOutChunks.add(fullNames);
+            this.timedOutChunks.add(encodedFullNames);
         } catch (Exception e) {
             system.debug('Other Exception: ' + e.getMessage());
         }
