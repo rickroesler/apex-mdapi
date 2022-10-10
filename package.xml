@@ -1,9 +1,33 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
-    <types>
-        <members>MetadataService</members>
+	<types>
+		<members>GetProfileMetadataBatch</members>
+		<members>MetadataService</members>
         <members>MetadataServiceTest</members>
-        <name>ApexClass</name>
-    </types>
-    <version>42.0</version>
+		<members>Profile</members>
+		<members>ProfileMetadata</members>
+		<name>ApexClass</name>
+	</types>
+	<types>
+		<members>Profile_Metadata_Part__b.Chunk_Number__c</members>
+		<members>Profile_Metadata_Part__b.Chunk__c</members>
+		<members>Profile_Metadata_Part__b.Full_Name__c</members>
+		<members>Profile_Metadata__c.Encoded_FullName__c</members>
+		<members>Profile_Metadata__c.Is_Deleted__c</members>
+		<members>Profile_Metadata__c.Is_Too_Large_To_Process__c</members>
+		<members>Profile_Metadata__c.Last_Modified_Datetime__c</members>
+		<members>Profile_Metadata__c.Last_Saved_Datetime__c</members>
+		<members>Profile_Metadata__c.Profile_Id__c</members>
+		<name>CustomField</name>
+	</types>
+	<types>
+		<members>Profile_Metadata_Part__b</members>
+		<members>Profile_Metadata__c</members>
+		<name>CustomObject</name>
+	</types>
+	<types>
+		<members>Profile_Metadata_Part__b.Profile_Metadata_Part</members>
+		<name>Index</name>
+	</types>
+	<version>55.0</version>
 </Package>

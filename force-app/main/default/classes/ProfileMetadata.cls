@@ -1,6 +1,4 @@
 public  class ProfileMetadata {
-    private static final Integer FIELD_PERMISSIONS_COUNT_LOWER_LIMIT = 18000;
-    private static final Integer MAX_CHUNK_SIZE = 10; // readMetadata() can read 10 max records
     private static final Double API_VERSION = 55.0;
     private static final Integer JSON_CHUNK_SIZE = 130000;
 
@@ -16,56 +14,33 @@ public  class ProfileMetadata {
     }
 
     /**
-     * @returns List<List<String> where the total FieldPermissions count in each subarray
-     *                            is guaranteed to be less than FIELD_PERMISSIONS_COUNT_UPPER_LIMIT
-     * 
-    */
-    public static List<List<String>> getDynamicChunks() {
-        Map<Id, String> profilesToUpdate = getProfilesToUpdate();
-        Map<Id, Integer> fieldPermissionsCountByProfile = getFieldPermissionsCountByProfileId(profilesToUpdate.keySet());
-
-        List<List<String>> dynamicChunks = new List<List<String>>();
-        Integer totalCount = 0;
-        List<String> fullNames = new List<String>();
-        for (Id profileId: profilesToUpdate.keySet()) {
-            Integer count = fieldPermissionsCountByProfile.get(profileId);
-            String fullName = profilesToUpdate.get(profileId);
-
-            // push the name to the current chunk if it doesn't exceed the size limit; go to the next profile
-            if (totalCount + count <= FIELD_PERMISSIONS_COUNT_LOWER_LIMIT && fullNames.size() < MAX_CHUNK_SIZE) {
-                totalCount += count;
-                fullNames.add(fullName);
-                continue;
-            } 
-            
-            // this chunk is full; push the chunk to the list and reset for the next chunk
-            if (!fullNames.isEmpty()) {
-                dynamicChunks.add(fullNames);
-                totalCount = 0;
-                fullNames = new List<String>();
-            }
-
-            // if the profile that pushed it over the limit is "big", make it its own chunk
-            // otherwise, push the "small" profile to the just-reinitialized chunk
-            if (count > FIELD_PERMISSIONS_COUNT_LOWER_LIMIT) {
-                dynamicChunks.add(new List<String>{ fullName });
-            } else {
-                totalCount += count;
-                fullNames.add(fullName);
+     * returns List<String> list of encoded Profile names whose Last_Saved_Datetime < Last_Modified_Datetime
+     */
+    public static List<String> getProfilesToUpdate() {
+        List<String> profilesToUpdate = new List<String>();
+        for (Profile_Metadata__c profile: [SELECT Encoded_FullName__c,
+                                                  Last_Saved_Datetime__c, Last_Modified_Datetime__c
+                                             FROM Profile_Metadata__c]) {
+            if (profile.Last_Saved_Datetime__c == null || profile.Last_Saved_Datetime__c < profile.Last_Modified_Datetime__c) {
+                profilesToUpdate.add(profile.Encoded_FullName__c);
             }
         }
-
-        // handle any remaining
-        if (!fullNames.isEmpty()) dynamicChunks.add(fullNames);
-
-        return dynamicChunks;
+        return profilesToUpdate;
     }
 
-    public static Boolean persistProfile(MetadataService.Profile rawProfile) {
-        Profile profile = new Profile(rawProfile);
+    public static Boolean persistProfile(Profile profile) {
+        system.debug('heap 4: ' + Limits.getHeapSize());
         String jsonProfile = JSON.serialize(profile, true); // true = suppress Object nulls
-        List<String> chunkedJson = chunkString(jsonProfile, JSON_CHUNK_SIZE);
+        system.debug(jsonProfile.length());
+        system.debug('heap 5: ' + Limits.getHeapSize());
         
+        List<String> chunkedJson = new List<String>();
+        do {
+            chunkedJson.add(jsonProfile.left(JSON_CHUNK_SIZE));
+            jsonProfile = jsonProfile.length() < JSON_CHUNK_SIZE ? '' : jsonProfile.substring(JSON_CHUNK_SIZE);
+            system.debug('heap 6: ' + Limits.getHeapSize());
+        } while (jsonProfile.length() > 0);
+
         List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
         Integer chunkNumber = 0;
         for (String chunk: chunkedJson) {
@@ -171,22 +146,6 @@ public  class ProfileMetadata {
         update profiles;
     }
 
-    /**
-     * returns Map<Id, String> where Id is a Profile Id whose Last_Saved_Datetime < Last_Modified_Datetime
-     *                           and String is the Profiles fullName
-     */
-    private static Map<Id, String> getProfilesToUpdate() {
-        Map<Id, String> profileIdsToUpdate = new Map<Id, String>();
-        for (Profile_Metadata__c profile: [SELECT Profile_Id__c, Encoded_FullName__c,
-                                                  Last_Saved_Datetime__c, Last_Modified_Datetime__c
-                                             FROM Profile_Metadata__c]) {
-            if (profile.Last_Saved_Datetime__c == null || profile.Last_Saved_Datetime__c < profile.Last_Modified_Datetime__c) {
-                profileIdsToUpdate.put(profile.Profile_Id__c, profile.Encoded_FullName__c);
-            }
-        }
-        return profileIdsToUpdate;
-    }
-
     private static void deleteAllPersistedRecords() {
         List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
         parts.addAll([SELECT Full_Name__c, Chunk_Number__c FROM Profile_Metadata_Part__b]);
@@ -266,15 +225,6 @@ public  class ProfileMetadata {
             savedProfiles.put(profile.profileId, profile);
         }
         return savedProfiles;
-    }
-
-    private static List<String> chunkString(String s, Integer chunkSize) {
-        List<String> chunkedString = new List<String>();
-        do {
-            chunkedString.add(s.left(chunkSize));
-            s = s.length() < chunkSize ? '' : s.substring(chunkSize);
-        } while (s.length() > 0);
-        return chunkedString;
     }
 
     class ProfileProperties {
