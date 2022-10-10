@@ -2,8 +2,6 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 	<types>
 		<members>GetProfileMetadataBatch</members>
-		<members>MetadataService</members>
-        <members>MetadataServiceTest</members>
 		<members>Profile</members>
 		<members>ProfileMetadata</members>
 		<name>ApexClass</name>
