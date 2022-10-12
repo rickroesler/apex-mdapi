@@ -1,25 +1,11 @@
-public with sharing class SOAPApi {
+public abstract class SOAPApi {
     private static final Integer SOAP_TIMEOUT = 120000;
-    private static final Set<String> SUPPORTED_METHODS = new Set<String>{ 'listMetadata', 'readMetadata' };
     private String sessionId;
-    private String method;
-    private String metadataType;
-    private List<String> fullNames;
-
-    public SOAPApi(String method, String metadataType) {
+    
+    public SOAPApi() {
         this.sessionId = UserInfo.getSessionId();
-        this.method = method; // check for valid method
-        this.metadataType = metadataType;
-        this.fullNames = new List<String>();
     }
-
-    public SOAPApi(String method, String metadataType, List<String> fullNames) {
-        this.sessionId = UserInfo.getSessionId();
-        this.method = method; // check for valid method
-        this.metadataType = metadataType;
-        this.fullNames = fullNames;
-    }
-
+    
     /**
      * returns the XML response to the SOAP request
      */
@@ -27,10 +13,10 @@ public with sharing class SOAPApi {
 
         HttpRequest req = new HttpRequest();
 
-        // String endPoint = URL.getSalesforceBaseUrl().toExternalForm() + '/services/Soap/m/54.0'; // + ElementsUtils.SF_API_VERSION;
-        // req.setEndpoint(endPoint);
-        // req.setHeader('Authorization', 'Bearer ' + this.sessionId);
-        req.setEndpoint('callout:ElementsSoapApi/services/Soap/m/54.0');
+        String endPoint = URL.getSalesforceBaseUrl().toExternalForm() + '/services/Soap/m/54.0'; // + ElementsUtils.SF_API_VERSION;
+        req.setEndpoint(endPoint);
+        req.setHeader('Authorization', 'Bearer ' + this.sessionId);
+        // req.setEndpoint('callout:ElementsSoapApi/services/Soap/m/54.0');
         req.setHeader('Content-Type', 'text/xml');
         req.setHeader('Accept', '*/*');
         req.setHeader('SOAPAction', '""');
@@ -62,38 +48,12 @@ public with sharing class SOAPApi {
         String header = '';
         header += '<soapenv:Header xmlns="http://soap.sforce.com/2006/04/metadata">';
         header += '<SessionHeader>';
-        // header += '<sessionId>' + this.sessionId + '</sessionId>';
-        header += '<sessionId>' + '{!$Credential.OAuthToken}' + '</sessionId>';
+        header += '<sessionId>' + this.sessionId + '</sessionId>';
+        // header += '<sessionId>' + '{!$Credential.OAuthToken}' + '</sessionId>';
         header += '</SessionHeader>';
         header += '</soapenv:Header>';
         return header;
     }
 
-    private String getSOAPBody() {
-        String body = '';
-
-        body += '<soapenv:Body xmlns="http://soap.sforce.com/2006/04/metadata">';
-
-        if (this.method == 'listMetadata') {
-            body += '<listMetadata>';
-            body += '<queries>';
-            body += '<type>' + this.metadataType + '</type>';
-            body += '</queries>';
-            body += '</listMetadata>';
-        }
-
-        if (this.method == 'readMetadata') {
-            body += '<readMetadata>';
-            body += '<type>' + this.metadataType + '</type>';
-            for (String fullName: this.fullNames) {
-                body += '<fullNames>' + fullName + '</fullNames>';
-            }
-            body += '</readMetadata>';
-        }
-
-        body += '</soapenv:Body>';
-        return body;
-    }
-
-
+    public abstract String getSOAPBody();
 }

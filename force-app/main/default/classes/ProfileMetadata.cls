@@ -1,12 +1,11 @@
 public  class ProfileMetadata {
     private static final Double API_VERSION = 55.0;
-    private static final Integer JSON_CHUNK_SIZE = 130000;
 
     public static void updateProfileMetadataRecords() {
         Map<Id, ProfileProperties> currentProfiles = getCurrentProfiles();
         Map<Id, ProfileProperties> savedProfiles = getSavedProfiles();
 
-        deleteAllPersistedRecords();
+        deleteAllXmlAttachments();
 
         processDeletedProfiles(currentProfiles, savedProfiles);
         processNewProfiles(currentProfiles, savedProfiles);
@@ -146,36 +145,8 @@ public  class ProfileMetadata {
         update profiles;
     }
 
-    private static void deleteAllPersistedRecords() {
-        List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
-        parts.addAll([SELECT Full_Name__c, Chunk_Number__c FROM Profile_Metadata_Part__b]);
+    private static void deleteAllXmlAttachments() {
 
-        if (parts.isEmpty()) return;
-
-        List<Database.DeleteResult> results = Database.deleteImmediate(parts);
-        for (Database.DeleteResult result: results) {
-            if (!result.isSuccess()) {
-                for (Database.Error e: result.getErrors()) {
-                    System.debug('Error deleting BigObject records: ' + e.getStatusCode() + ': ' + e.getMessage());
-                }
-            }
-        }
-    }
-
-    /**
-     * returns Map<Id, Integer> where Id == Salesforce Profile Id
-     *                             count == the number of FieldPermissions in the profile
-     */
-    private static Map<Id, Integer> getFieldPermissionsCountByProfileId(Set<Id> profileIds) {
-        Map<Id, Integer> fieldPermissionsCountByProfileId = new Map<Id, Integer>();
-        for (AggregateResult result: [SELECT COUNT(Id) FieldPermissionsCount, Parent.ProfileId
-                                        FROM FieldPermissions
-                                       WHERE Parent.ProfileId IN :profileIds
-                                    GROUP BY Parent.ProfileId
-                                    ORDER BY COUNT(Id) ASC]) {
-            fieldPermissionsCountByProfileId.put((Id) result.get('ProfileId'), (Integer) result.get('FieldPermissionsCount'));
-        }
-        return fieldPermissionsCountByProfileId;
     }
 
     /**
