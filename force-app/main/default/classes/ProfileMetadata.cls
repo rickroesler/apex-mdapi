@@ -1,5 +1,6 @@
 public  class ProfileMetadata {
     private static final Double API_VERSION = 55.0;
+    private static final Integer SOAP_TIMEOUT = 120000;
 
     public static void updateProfileMetadataRecords() {
         Map<Id, ProfileProperties> currentProfiles = getCurrentProfiles();
@@ -28,41 +29,42 @@ public  class ProfileMetadata {
     }
 
     public static Boolean persistProfile(Profile profile) {
-        system.debug('heap 4: ' + Limits.getHeapSize());
-        String jsonProfile = JSON.serialize(profile, true); // true = suppress Object nulls
-        system.debug(jsonProfile.length());
-        system.debug('heap 5: ' + Limits.getHeapSize());
+        // system.debug('heap 4: ' + Limits.getHeapSize());
+        // String jsonProfile = JSON.serialize(profile, true); // true = suppress Object nulls
+        // system.debug(jsonProfile.length());
+        // system.debug('heap 5: ' + Limits.getHeapSize());
         
-        List<String> chunkedJson = new List<String>();
-        do {
-            chunkedJson.add(jsonProfile.left(JSON_CHUNK_SIZE));
-            jsonProfile = jsonProfile.length() < JSON_CHUNK_SIZE ? '' : jsonProfile.substring(JSON_CHUNK_SIZE);
-            system.debug('heap 6: ' + Limits.getHeapSize());
-        } while (jsonProfile.length() > 0);
+        // List<String> chunkedJson = new List<String>();
+        // do {
+        //     chunkedJson.add(jsonProfile.left(JSON_CHUNK_SIZE));
+        //     jsonProfile = jsonProfile.length() < JSON_CHUNK_SIZE ? '' : jsonProfile.substring(JSON_CHUNK_SIZE);
+        //     system.debug('heap 6: ' + Limits.getHeapSize());
+        // } while (jsonProfile.length() > 0);
 
-        List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
-        Integer chunkNumber = 0;
-        for (String chunk: chunkedJson) {
-            Profile_Metadata_Part__b part = new Profile_Metadata_Part__b();
-                part.Full_Name__c = profile.fullName;
-                part.Chunk_Number__c = chunkNumber;
-                part.Chunk__c = chunkedJson[chunkNumber];
-            parts.add(part);
-            chunkNumber++;
-        }
+        // List<Profile_Metadata_Part__b> parts = new List<Profile_Metadata_Part__b>();
+        // Integer chunkNumber = 0;
+        // for (String chunk: chunkedJson) {
+        //     Profile_Metadata_Part__b part = new Profile_Metadata_Part__b();
+        //         part.Full_Name__c = profile.fullName;
+        //         part.Chunk_Number__c = chunkNumber;
+        //         part.Chunk__c = chunkedJson[chunkNumber];
+        //     parts.add(part);
+        //     chunkNumber++;
+        // }
 
-        List<Database.SaveResult> results = Database.insertImmediate(parts);
-        Boolean success = true;
-        for (Database.SaveResult result: results) {
-            if (!result.isSuccess()) {
-                success = false;
-                for (Database.Error e: result.getErrors()) {
-                    System.debug('Error inserting BigObject records: ' + e.getStatusCode() + ': ' + e.getMessage());
-                }
-            }
-        }
+        // List<Database.SaveResult> results = Database.insertImmediate(parts);
+        // Boolean success = true;
+        // for (Database.SaveResult result: results) {
+        //     if (!result.isSuccess()) {
+        //         success = false;
+        //         for (Database.Error e: result.getErrors()) {
+        //             System.debug('Error inserting BigObject records: ' + e.getStatusCode() + ': ' + e.getMessage());
+        //         }
+        //     }
+        // }
 
-        return success;
+        // return success;
+        return true;
     }
 
     public static void persistLastSavedDatetimes(Map<String, Datetime> lastSavedDatetimes) {
@@ -153,23 +155,46 @@ public  class ProfileMetadata {
      * returns Map<Id, ProfileMetadata> where Id == Salesforce Profile Id
      *                                        ProfileMetadata == record corresponding to an existing Profile
      */
-    private static Map<Id, ProfileProperties> getCurrentProfiles() {
+    public static Map<Id, ProfileProperties> getCurrentProfiles() {
         Map<Id, ProfileProperties> currentProfiles = new Map<Id, ProfileProperties>();
 
-        MetadataService.MetadataPort service = MetadataService.createService();
-        MetadataService.ListMetadataQuery query = new MetadataService.ListMetadataQuery();
-        query.type_x = 'Profile';
-        List<MetadataService.ListMetadataQuery> queries = new List<MetadataService.ListMetadataQuery>{ query };
-        List<MetadataService.FileProperties> files = service.listMetadata(queries, API_VERSION); 
+        ListMetadataApi listMetadataApi = new ListMetadataApi('Profile');
+        listMetadataApi.executeRequest();
 
-        for (MetadataService.FileProperties file: files) {
+        Dom.Document doc = new Dom.Document();
+        doc.load(listMetadataApi.executeRequest());
+        Dom.XmlNode envelope = doc.getRootElement();
+        Dom.XmlNode body = envelope.getChildElements()[0];
+        Dom.XmlNode listMetadataResponse = body.getChildElements()[0];
+        List<Dom.XmlNode> results = listMetadataResponse.getChildElements();
+        for (Dom.XmlNode result: results) {
+            Boolean hasId = false;
+            Boolean hasName = false;
+            Boolean hasDate = false;
             ProfileProperties profile = new ProfileProperties();
-                profile.profileId = file.id;
-                profile.fullName = EncodingUtil.urlDecode(file.fullName, 'UTF-8');
-                profile.encodedFullName = file.fullName;
-                profile.lastModifiedDatetime = file.lastModifiedDate;
-            currentProfiles.put(profile.profileId, profile);
+            for (Dom.XmlNode element: result.getChildElements()) {
+                switch on element.getName() {
+                    when 'id' {
+                        profile.profileId = (Id) element.getText();
+                        hasId = true;
+                    }
+                    when 'fullName' {
+                        profile.encodedFullName = element.getText();
+                        profile.fullName = EncodingUtil.urlDecode(profile.encodedFullName, 'UTF-8');
+                        hasName = true;
+                    }
+                    when 'lastModifiedDate' {
+                        profile.lastModifiedDatetime = (Datetime) JSON.deserialize(element.getText(), Datetime.class);
+                        hasDate = true;
+                    }
+                }   
+            }
+            if (hasId && hasName && hasDate) {
+                currentProfiles.put(profile.profileId, profile);
+                system.debug(profile.profileId + ': ' + profile.encodedFullName);
+            }
         }
+
         return currentProfiles;
     }
 

@@ -2,14 +2,14 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
 	<types>
 		<members>GetProfileMetadataBatch</members>
+        <members>ListMetadataApi</members>
 		<members>Profile</members>
 		<members>ProfileMetadata</members>
+        <members>ReadMetadataApi</members>
+        <members>SOAPApi</members>
 		<name>ApexClass</name>
 	</types>
 	<types>
-		<members>Profile_Metadata_Part__b.Chunk_Number__c</members>
-		<members>Profile_Metadata_Part__b.Chunk__c</members>
-		<members>Profile_Metadata_Part__b.Full_Name__c</members>
 		<members>Profile_Metadata__c.Encoded_FullName__c</members>
 		<members>Profile_Metadata__c.Is_Deleted__c</members>
 		<members>Profile_Metadata__c.Is_Too_Large_To_Process__c</members>
@@ -19,13 +19,8 @@
 		<name>CustomField</name>
 	</types>
 	<types>
-		<members>Profile_Metadata_Part__b</members>
 		<members>Profile_Metadata__c</members>
 		<name>CustomObject</name>
-	</types>
-	<types>
-		<members>Profile_Metadata_Part__b.Profile_Metadata_Part</members>
-		<name>Index</name>
 	</types>
 	<version>55.0</version>
 </Package>
