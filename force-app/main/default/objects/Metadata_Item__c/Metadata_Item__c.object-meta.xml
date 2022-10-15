@@ -143,23 +143,24 @@
     <allowInChatterGroups>false</allowInChatterGroups>
     <compactLayoutAssignment>SYSTEM</compactLayoutAssignment>
     <deploymentStatus>Deployed</deploymentStatus>
-    <description>Attachments to these records store a JSON representation of the complete profile detail.</description>
+    <description>Data related to specific metadata items processed by Elements on the Salesforce platform.</description>
     <enableActivities>false</enableActivities>
     <enableBulkApi>true</enableBulkApi>
     <enableFeeds>false</enableFeeds>
     <enableHistory>false</enableHistory>
     <enableLicensing>false</enableLicensing>
-    <enableReports>false</enableReports>
+    <enableReports>true</enableReports>
     <enableSearch>true</enableSearch>
     <enableSharing>true</enableSharing>
     <enableStreamingApi>true</enableStreamingApi>
     <externalSharingModel>Private</externalSharingModel>
-    <label>Profile Metadata</label>
+    <label>Metadata Item</label>
     <nameField>
-        <label>FullName</label>
-        <type>Text</type>
+        <displayFormat>ITEM-{0000000}</displayFormat>
+        <label>Metadata Item Name</label>
+        <type>AutoNumber</type>
     </nameField>
-    <pluralLabel>Profile Metadata</pluralLabel>
+    <pluralLabel>Metadata Items</pluralLabel>
     <searchLayouts></searchLayouts>
     <sharingModel>ReadWrite</sharingModel>
     <visibility>Public</visibility>

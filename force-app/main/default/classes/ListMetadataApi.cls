@@ -1,7 +1,8 @@
 public class ListMetadataApi extends SOAPApi {
     private String metadataType;
 
-    public ListMetadataApi(String metadataType) {
+    public ListMetadataApi(String sessionId, String metadataType) {
+        this.sessionId = sessionId;
         this.metadataType = metadataType;
     }
 

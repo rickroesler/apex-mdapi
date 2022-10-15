@@ -1,6 +1,7 @@
 public abstract class SOAPApi {
     private static final Integer SOAP_TIMEOUT = 120000;
-    
+    protected String sessionId; // child classes MUST set this
+
     /**
      * returns the XML response to the SOAP request
      */
@@ -10,14 +11,12 @@ public abstract class SOAPApi {
 
         String endPoint = URL.getSalesforceBaseUrl().toExternalForm() + '/services/Soap/m/54.0';
         req.setEndpoint(endPoint);
-        req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
-        // req.setEndpoint('callout:ElementsSoapApi/services/Soap/m/54.0');
+        req.setHeader('Authorization', 'Bearer ' + this.sessionId);
         req.setHeader('Content-Type', 'text/xml');
         req.setHeader('Accept', '*/*');
         req.setHeader('SOAPAction', '""');
         req.setMethod('POST');
         req.setTimeout(SOAP_TIMEOUT);
-system.debug(getSOAPEnvelope());
         req.setBody(getSOAPEnvelope());
 
         Http http = new Http();
@@ -44,7 +43,8 @@ system.debug(getSOAPEnvelope());
         String header = '';
         header += '<soapenv:Header xmlns="http://soap.sforce.com/2006/04/metadata">';
         header += '<SessionHeader>';
-        header += '<sessionId>' + UserInfo.getSessionId() + '</sessionId>';
+        header += '<sessionId>' + this.sessionId + '</sessionId>';
+        // header += '<sessionId>' + UserInfo.getSessionId() + '</sessionId>';
         // header += '<sessionId>' + '{!$Credential.OAuthToken}' + '</sessionId>';
         header += '</SessionHeader>';
         header += '</soapenv:Header>';

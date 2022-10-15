@@ -2,7 +2,8 @@ public class ReadMetadataApi extends SOAPApi {
     private String metadataType;
     private List<String> fullNames;
 
-    public ReadMetadataApi(String metadataType, List<String> fullNames) {
+    public ReadMetadataApi(String sessionId, String metadataType, List<String> fullNames) {
+        this.sessionId = sessionId;
         this.metadataType = metadataType;
         this.fullNames = fullNames;
     }
