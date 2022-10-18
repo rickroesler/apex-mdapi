@@ -3,7 +3,7 @@ public class S3Repository {
 
 
     public static String getS3PresignedUrl(String metadataType, String fileName) {
-        // temporary for standalone 
+        // temporary for standalone; will be replace by call to Elements makeRequest()
         String endpoint = 'https://5d4b-172-114-128-36.ngrok.io/api/v1/s3/presignedUrl';
         String publicKey = 'L82vG0W03qPXwNRXrl46';
         String authorization = UserInfo.getOrganizationId() + '.' + EncodingUtil.convertToHex(Crypto.generateDigest('MD5', Blob.valueOF(publicKey + '.' + UserInfo.getOrganizationId() + '.1ZAiTn3FVvgOpwWBbGl1FFSuwkl8lt9pxuE8Fj5uAqDpusZRXa')));
@@ -16,13 +16,11 @@ public class S3Repository {
 
         HttpResponse res = new Http().send(req);
         
-        UrlResponse urlResponse = (UrlResponse) JSON.deserialize(res.getBody(), UrlResponse.class);
-        system.debug(urlResponse.fileName);
-        system.debug(urlResponse.url);
-        return urlResponse.url;
+        String url = res.getBody();
+        return url;
     }
 
-    // should probably return a boolean or other status
+    // TODO: throw an exception if there is an error writing to S3
     public static void putXmlToS3(String url, String xml) {
         HttpRequest req = new HttpRequest();
         req.setEndpoint(url);
@@ -66,10 +64,5 @@ public class S3Repository {
             this.metadataType = metadataType;
             this.fileName = fileName;
         }
-    }
-
-    class UrlResponse {
-        String fileName;
-        String url;
     }
 }

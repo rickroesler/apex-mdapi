@@ -16,7 +16,7 @@ public class MetadataXmlBatchHelper {
         processExistingItems(currentItems, savedItems);
     }
 
-    public String getFileName(String encodedFullName) {
+    public static String getFileName(String encodedFullName) {
         return EncodingUtil.urlDecode(encodedFullName, 'UTF-8') + '.xml';
     }
 
@@ -36,22 +36,22 @@ public class MetadataXmlBatchHelper {
         return itemsToUpdate;
     }
 
-    public void persistLastSavedDatetimes(Map<String, Datetime> lastSavedDatetimes) {
+    public static void persistLastSavedDatetimes(String metadataType, Map<String, Datetime> lastSavedDatetimes) {
         List<Metadata_Item__c> items = [SELECT Id, Encoded_FullName__c, Last_Saved_Datetime__c
                                           FROM Metadata_Item__c
                                          WHERE Encoded_FullName__c IN :lastSavedDatetimes.keySet()
-                                           AND Metadata_Type__c = :this.metadataType];
+                                           AND Metadata_Type__c = :metadataType];
         for (Metadata_Item__c item: items) {
             item.Last_Saved_Datetime__c = lastSavedDatetimes.get(item.Encoded_FullName__c);
         }
         update items;
     }
 
-    public void markTooBig(List<String> encodedFullNames) {
+    public static void markTooBig(String metadataType, List<String> encodedFullNames) {
         List<Metadata_Item__c> items = [SELECT Id, Is_Too_Large_To_Process__c
                                           FROM Metadata_Item__c
                                          WHERE Encoded_FullName__c IN :encodedFullNames
-                                           AND Metadata_Type__c = :this.metadataType];
+                                           AND Metadata_Type__c = :metadataType];
 
         if (items.size() != encodedFullNames.size()) {
             system.debug('requested: ' + encodedFullNames + '; received: ' + items);

@@ -11,7 +11,7 @@ public abstract class SOAPApi {
 
         String endPoint = URL.getSalesforceBaseUrl().toExternalForm() + '/services/Soap/m/54.0';
         req.setEndpoint(endPoint);
-        req.setHeader('Authorization', 'Bearer ' + this.sessionId);
+        req.setHeader('Authorization', 'Bearer ' + getSessionId());
         req.setHeader('Content-Type', 'text/xml');
         req.setHeader('Accept', '*/*');
         req.setHeader('SOAPAction', '""');
@@ -19,6 +19,9 @@ public abstract class SOAPApi {
         req.setTimeout(SOAP_TIMEOUT);
         req.setBody(getSOAPEnvelope());
 
+        // add a try/catch here
+        // if token has expired, then use the refresh token to fetch a new OAuth token
+        // retry with the new token (sessionId)
         Http http = new Http();
         HttpResponse res = http.send(req);
         String xml = res.getBody();
@@ -43,8 +46,7 @@ public abstract class SOAPApi {
         String header = '';
         header += '<soapenv:Header xmlns="http://soap.sforce.com/2006/04/metadata">';
         header += '<SessionHeader>';
-        header += '<sessionId>' + this.sessionId + '</sessionId>';
-        // header += '<sessionId>' + UserInfo.getSessionId() + '</sessionId>';
+        header += '<sessionId>' + getSessionId() + '</sessionId>';
         // header += '<sessionId>' + '{!$Credential.OAuthToken}' + '</sessionId>';
         header += '</SessionHeader>';
         header += '</soapenv:Header>';
@@ -52,4 +54,9 @@ public abstract class SOAPApi {
     }
 
     protected abstract String getSOAPBody();
+
+    // need a different way to get this: refresh token or Named Credential
+    private String getSessionId() {
+        return this.sessionId;
+    }
 }
