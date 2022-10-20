@@ -1,10 +1,13 @@
 public class S3Repository {
     
+    public class S3RepositoryException extends Exception {}
 
+    private static final String S3_SIGNED_URL_ENDPOINT = 'api/v1/salesforce/s3SignedUrl';
+    private static final String S3_DELETE_FILES_ENDPOINT = 'api/v1/salesforce/deleteS3Files';
 
-    public static String getS3PresignedUrl(String metadataType, String fileName) {
+    public static String getS3SignedUrl(String metadataType, String fileName) {
         // temporary for standalone; will be replace by call to Elements makeRequest()
-        String endpoint = 'https://5d4b-172-114-128-36.ngrok.io/api/v1/s3/presignedUrl';
+        String endpoint = 'https://5d4b-172-114-128-36.ngrok.io/' + S3_SIGNED_URL_ENDPOINT;
         String publicKey = 'L82vG0W03qPXwNRXrl46';
         String authorization = UserInfo.getOrganizationId() + '.' + EncodingUtil.convertToHex(Crypto.generateDigest('MD5', Blob.valueOF(publicKey + '.' + UserInfo.getOrganizationId() + '.1ZAiTn3FVvgOpwWBbGl1FFSuwkl8lt9pxuE8Fj5uAqDpusZRXa')));
         HttpRequest req = new HttpRequest();
@@ -40,14 +43,14 @@ public class S3Repository {
         }
 
         // temporary for standalone 
-        String endpoint = 'https://5d4b-172-114-128-36.ngrok.io/api/v1/s3/deleteXmlFiles';
+        String endpoint = 'https://5d4b-172-114-128-36.ngrok.io/' + S3_DELETE_FILES_ENDPOINT;
         String publicKey = 'L82vG0W03qPXwNRXrl46';
         String authorization = UserInfo.getOrganizationId() + '.' + EncodingUtil.convertToHex(Crypto.generateDigest('MD5', Blob.valueOF(publicKey + '.' + UserInfo.getOrganizationId() + '.1ZAiTn3FVvgOpwWBbGl1FFSuwkl8lt9pxuE8Fj5uAqDpusZRXa')));
         HttpRequest req = new HttpRequest();
         req.setEndpoint(endPoint);
         req.setHeader('Content-Type', 'application/json');
         req.setHeader('Authorization', authorization);
-        req.setMethod('POST');
+        req.setMethod('DELETE');
         req.setTimeout(30000);
         req.setBody(JSON.serialize(fileIds));
 

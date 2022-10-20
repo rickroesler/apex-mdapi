@@ -6,11 +6,15 @@ public class MetadataXmlBatchHelper {
     private String metadataType;
 
     public MetadataXmlBatchHelper(String sessionId, String metadataType) {
+        if (!Metadata_Type__mdt.getAll().keySet().contains(metadataType)) {
+            throw new GetMetadataXmlBatch.MetadataXmlBatchException('UNSUPPORTED METADATA TYPE: ' + metadataType);
+        }
+
         this.metadataType = metadataType;
         this.sessionId = sessionId;
 
-        Map<Id, MetadataItem> currentItems = getCurrentItems();
-        Map<Id, MetadataItem> savedItems = getSavedItems();
+        Map<Id, MetadataItemWrapper> currentItems = getCurrentItems();
+        Map<Id, MetadataItemWrapper> savedItems = getSavedItems();
         processDeletedItems(currentItems, savedItems);
         processNewItems(currentItems, savedItems);
         processExistingItems(currentItems, savedItems);
@@ -65,7 +69,7 @@ public class MetadataXmlBatchHelper {
         update items;
     }
 
-    private void processDeletedItems(Map<Id, MetadataItem> currentItems, Map<Id, MetadataItem> savedItems) {
+    private void processDeletedItems(Map<Id, MetadataItemWrapper> currentItems, Map<Id, MetadataItemWrapper> savedItems) {
         Set<Id> deletedIds = savedItems.keySet().clone();
         deletedIds.removeAll(currentItems.keySet());  // set of items that are saved but not current
 
@@ -86,7 +90,7 @@ public class MetadataXmlBatchHelper {
 
     
 
-    private void processNewItems(Map<Id, MetadataItem> currentItems, Map<Id, MetadataItem> savedItems) {
+    private void processNewItems(Map<Id, MetadataItemWrapper> currentItems, Map<Id, MetadataItemWrapper> savedItems) {
         // TODO: handle case where a new item is created with the same fullName as a previously-deleted item
         // make a list of fullnames of the new items
         // select saved items that are deleted with those fullnames
@@ -96,7 +100,7 @@ public class MetadataXmlBatchHelper {
 
         List<Metadata_Item__c> newItems = new List<Metadata_Item__c>();
         for (Id newId: newIds) {
-            MetadataItem currentItem = currentItems.get(newId);
+            MetadataItemWrapper currentItem = currentItems.get(newId);
             Metadata_Item__c item = new Metadata_Item__c();
                 item.Metadata_Type__c = this.metadataType;
                 item.Salesforce_Id__c = newId;
@@ -109,7 +113,7 @@ public class MetadataXmlBatchHelper {
         insert newItems;
     }
 
-    private void processExistingItems(Map<Id, MetadataItem> currentItems, Map<Id, MetadataItem> savedItems) {
+    private void processExistingItems(Map<Id, MetadataItemWrapper> currentItems, Map<Id, MetadataItemWrapper> savedItems) {
         Set<Id> existingIds = currentItems.keySet().clone();
         existingIds.retainAll(savedItems.keySet()); // the set of current items that have already been saved
 
@@ -117,7 +121,7 @@ public class MetadataXmlBatchHelper {
                                                   FROM Metadata_Item__c
                                                  WHERE Salesforce_Id__c IN :existingIds];
         for (Metadata_Item__c item: existingItems) {
-            MetadataItem currentItem = currentItems.get(item.Salesforce_Id__c);
+            MetadataItemWrapper currentItem = currentItems.get(item.Salesforce_Id__c);
             item.Encoded_FullName__c = currentItem.encodedFullName;
             item.Last_Modified_Datetime__c = currentItems.get(item.Salesforce_Id__c).lastModifiedDatetime;
             item.Is_Deleted__c = false;
@@ -130,8 +134,8 @@ public class MetadataXmlBatchHelper {
      *                  where Id == Salesforce Profile Id
      *                        MetadataItem == record corresponding to an existing Profile
      */
-    public Map<Id, MetadataItem> getCurrentItems() {
-        Map<Id, MetadataItem> currentItems = new Map<Id, MetadataItem>();
+    public Map<Id, MetadataItemWrapper> getCurrentItems() {
+        Map<Id, MetadataItemWrapper> currentItems = new Map<Id, MetadataItemWrapper>();
 
         ListMetadataApi listMetadataApi = new ListMetadataApi(this.sessionId, this.metadataType);
 
@@ -145,7 +149,7 @@ public class MetadataXmlBatchHelper {
             Boolean hasId = false;
             Boolean hasName = false;
             Boolean hasDate = false;
-            MetadataItem item = new MetadataItem();
+            MetadataItemWrapper item = new MetadataItemWrapper();
             for (Dom.XmlNode element: result.getChildElements()) {
                 switch on element.getName() {
                     when 'id' {
@@ -175,8 +179,8 @@ public class MetadataXmlBatchHelper {
      *                      where Id == Salesforce Profile Id
      *                            MetadataItem == a saved Metadata_Item__c record
      */
-    private Map<Id, MetadataItem> getSavedItems() {
-        Map<Id, MetadataItem> savedItems = new Map<Id, MetadataItem>();
+    private Map<Id, MetadataItemWrapper> getSavedItems() {
+        Map<Id, MetadataItemWrapper> savedItems = new Map<Id, MetadataItemWrapper>();
 
         List<Metadata_Item__c> items = [SELECT Id, Encoded_FullName__c, Salesforce_Id__c, Is_Deleted__c, 
                                                Last_Saved_Datetime__c, Last_Modified_Datetime__c
@@ -184,7 +188,7 @@ public class MetadataXmlBatchHelper {
                                          WHERE Metadata_Type__c = :this.metadataType];
         
         for (Metadata_Item__c item: items) {
-            MetadataItem mi = new MetadataItem();
+            MetadataItemWrapper mi = new MetadataItemWrapper();
                 mi.salesforceId = item.Salesforce_Id__c;
                 mi.encodedFullName = item.Encoded_FullName__c;
                 mi.lastSavedDatetime = item.Last_Saved_Datetime__c;
@@ -195,7 +199,7 @@ public class MetadataXmlBatchHelper {
         return savedItems;
     }
 
-    class MetadataItem {
+    class MetadataItemWrapper {
         String encodedFullName;
         Id salesforceId;
         Boolean isDeleted;

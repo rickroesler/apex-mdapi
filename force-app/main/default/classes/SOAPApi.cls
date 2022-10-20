@@ -1,15 +1,22 @@
 public abstract class SOAPApi {
+    public class SOAPApiException extends Exception {}
+    
     private static final Integer SOAP_TIMEOUT = 120000;
+    private static final String SOAP_ENDPOINT = '/services/Soap/m/54.0'; // maybe make the version dynamic?
+    private static final String INVALID_TOKEN = 'invalid_token';
+    private static final String INVALID_SESSION_ID = 'INVALID_SESSION_ID';
+
     protected String sessionId; // child classes MUST set this
 
     /**
      * returns the XML response to the SOAP request
      */
     public String executeRequest() {
+        String xml;
 
         HttpRequest req = new HttpRequest();
 
-        String endPoint = URL.getSalesforceBaseUrl().toExternalForm() + '/services/Soap/m/54.0';
+        String endPoint = URL.getSalesforceBaseUrl().toExternalForm() + SOAP_ENDPOINT;
         req.setEndpoint(endPoint);
         req.setHeader('Authorization', 'Bearer ' + getSessionId());
         req.setHeader('Content-Type', 'text/xml');
@@ -22,10 +29,15 @@ public abstract class SOAPApi {
         // add a try/catch here
         // if token has expired, then use the refresh token to fetch a new OAuth token
         // retry with the new token (sessionId)
-        Http http = new Http();
-        HttpResponse res = http.send(req);
-        String xml = res.getBody();
-        system.debug(xml);
+        try {
+            HttpResponse res;
+            res = new Http().send(req);
+            xml = res.getBody();
+            system.debug(xml);
+        } catch (CalloutException e) {
+            throw new SOAPApiException(e.getMessage());
+        }
+
         return xml;
     }
 
