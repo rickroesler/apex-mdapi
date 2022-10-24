@@ -3,6 +3,8 @@ public class GetMetadataXmlBatch
 
     public class MetadataXmlBatchException extends Exception {}
 
+    private static final String FILE_TYPE = 'xml';
+
     private List<String> unprocessedFiles = new List<String>();
     private List<String> timedOutFiles = new List<String>();
     private Map<String, Datetime> lastSavedDatetimes = new Map<String, Datetime>();
@@ -34,7 +36,7 @@ public class GetMetadataXmlBatch
         try {
             String xml = readMetadataApi.executeRequest();
             String fileName = MetadataXmlBatchHelper.getFileName(encodedFullName);
-            String url = S3Repository.getS3SignedUrl(this.metadataType, fileName);
+            String url = S3Repository.getS3SignedUrl(FILE_TYPE, this.metadataType, fileName);
             S3Repository.putXmlToS3(url, xml);
             lastSavedDatetimes.put(encodedFullName, Datetime.now());
         } catch (SoapApi.SoapApiException e) {

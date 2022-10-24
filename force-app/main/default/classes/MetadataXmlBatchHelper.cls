@@ -1,6 +1,7 @@
 public class MetadataXmlBatchHelper {
     private static final Double API_VERSION = 55.0;
     private static final Integer SOAP_TIMEOUT = 120000;
+    private static final String FILE_TYPE = 'xml';
 
     private String sessionId;
     private String metadataType;
@@ -85,7 +86,7 @@ public class MetadataXmlBatchHelper {
             fileNamesToDelete.add(getFileName(item.Encoded_FullName__c));
         }
         update items;
-        S3Repository.deleteXmlFilesFromS3(this.metadataType, fileNamesToDelete);
+        S3Repository.deleteXmlFilesFromS3(FILE_TYPE, this.metadataType, fileNamesToDelete);
     }
 
     
