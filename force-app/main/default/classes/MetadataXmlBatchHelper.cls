@@ -86,7 +86,7 @@ public class MetadataXmlBatchHelper {
             fileNamesToDelete.add(getFileName(item.Encoded_FullName__c));
         }
         update items;
-        S3Repository.deleteXmlFilesFromS3(FILE_TYPE, this.metadataType, fileNamesToDelete);
+        S3Service.deleteXmlFilesFromS3(FILE_TYPE, this.metadataType, fileNamesToDelete);
     }
 
     

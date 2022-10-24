@@ -7,8 +7,8 @@
         <members>ListMetadataApi</members>
         <members>MetadataXmlBatchHelper</members>
         <members>ReadMetadataApi</members>
-        <members>S3Repository</members>
-        <members>SOAPApi</members>
+        <members>S3Service</members>
+        <members>MetadataService</members>
         <name>ApexClass</name>
     </types>
     <types>

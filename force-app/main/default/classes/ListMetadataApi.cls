@@ -1,4 +1,4 @@
-public class ListMetadataApi extends SOAPApi {
+public class ListMetadataApi extends MetadataService {
     private String metadataType;
 
     public ListMetadataApi(String sessionId, String metadataType) {

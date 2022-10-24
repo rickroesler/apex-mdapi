@@ -1,4 +1,4 @@
-public class ReadMetadataApi extends SOAPApi {
+public class ReadMetadataApi extends MetadataService {
     private String metadataType;
     private List<String> fullNames;
 

@@ -1,9 +1,10 @@
-public class S3Repository {
+public class S3Service {
     
-    public class S3RepositoryException extends Exception {}
+    public class S3ServiceException extends Exception {}
 
     private static final String S3_SIGNED_URL_ENDPOINT = 'api/v1/salesforce/s3SignedUrl';
     private static final String S3_DELETE_FILES_ENDPOINT = 'api/v1/salesforce/s3Files';
+    private static final Integer S3_API_TIMEOUT = 30000;
 
     public static String getS3SignedUrl(String fileType, String metadataType, String fileName) {
         // temporary for standalone; will be replace by call to Elements makeRequest()
@@ -31,6 +32,7 @@ public class S3Repository {
         req.setHeader('Content-Type', 'text/xml');
         req.setMethod('PUT');
         req.setBody(xml);
+        req.setTimeout(S3_API_TIMEOUT);
 
         HttpResponse res = new Http().send(req);
     }
@@ -51,7 +53,7 @@ public class S3Repository {
         req.setHeader('Content-Type', 'application/json');
         req.setHeader('Authorization', authorization);
         req.setMethod('DELETE');
-        req.setTimeout(30000);
+        req.setTimeout(S3_API_TIMEOUT);
         req.setBody(JSON.serialize(fileIds));
 
         HttpResponse res = new Http().send(req);

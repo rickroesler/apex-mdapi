@@ -1,5 +1,5 @@
-public abstract class SOAPApi {
-    public class SOAPApiException extends Exception {}
+public abstract class MetadataService {
+    public class MetadataServiceException extends Exception {}
     
     private static final Integer SOAP_TIMEOUT = 120000;
     private static final String SOAP_ENDPOINT = '/services/Soap/m/54.0'; // maybe make the version dynamic?
@@ -35,7 +35,7 @@ public abstract class SOAPApi {
             xml = res.getBody();
             system.debug(xml);
         } catch (CalloutException e) {
-            throw new SOAPApiException(e.getMessage());
+            throw new MetadataServiceException(e.getMessage());
         }
 
         return xml;

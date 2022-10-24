@@ -36,16 +36,16 @@ public class GetMetadataXmlBatch
         try {
             String xml = readMetadataApi.executeRequest();
             String fileName = MetadataXmlBatchHelper.getFileName(encodedFullName);
-            String url = S3Repository.getS3SignedUrl(FILE_TYPE, this.metadataType, fileName);
-            S3Repository.putXmlToS3(url, xml);
+            String url = S3Service.getS3SignedUrl(FILE_TYPE, this.metadataType, fileName);
+            S3Service.putXmlToS3(url, xml);
             lastSavedDatetimes.put(encodedFullName, Datetime.now());
-        } catch (SoapApi.SoapApiException e) {
-            // if read timed out, then add to timedOutFiles list and alert that it's too big
-
-            // if invalid_grant (expired refresh token), then add to unprocessedFiles list
-            // i don't think this should ever happen
-            this.unprocessedFiles.add(encodedFullName);
-        } catch (S3Repository.S3RepositoryException e) {
+        } catch (MetadataService.MetadataServiceException e) {
+            if (e.getMessage() == 'Read timed out') {
+                this.timedOutFiles.add(encodedFullName);
+            } else {
+                this.unprocessedFiles.add(encodedFullName);    
+            }
+        } catch (S3Service.S3ServiceException e) {
             this.unprocessedFiles.add(encodedFullName);
         }
     }
