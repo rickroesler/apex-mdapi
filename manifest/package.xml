@@ -2,7 +2,7 @@
 <Package xmlns="http://soap.sforce.com/2006/04/metadata">
     <types>
         <members>BatchLaunchREST</members>
-        <members>BatchLaunchRequestQueueable</members>
+        <members>BatchLaunchRequest</members>
         <members>GetMetadataXmlBatch</members>
         <members>ListMetadataApi</members>
         <members>MetadataXmlBatchHelper</members>
