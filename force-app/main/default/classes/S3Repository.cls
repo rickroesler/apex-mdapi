@@ -3,23 +3,24 @@ public class S3Repository {
     public class S3RepositoryException extends Exception {}
 
     private static final String S3_SIGNED_URL_ENDPOINT = 'api/v1/salesforce/s3SignedUrl';
-    private static final String S3_DELETE_FILES_ENDPOINT = 'api/v1/salesforce/deleteS3Files';
+    private static final String S3_DELETE_FILES_ENDPOINT = 'api/v1/salesforce/s3Files';
 
-    public static String getS3SignedUrl(String metadataType, String fileName) {
+    public static String getS3SignedUrl(String fileType, String metadataType, String fileName) {
         // temporary for standalone; will be replace by call to Elements makeRequest()
-        String endpoint = 'https://5d4b-172-114-128-36.ngrok.io/' + S3_SIGNED_URL_ENDPOINT;
+        String endpoint = 'https://a5f2-172-114-128-36.ngrok.io/' + S3_SIGNED_URL_ENDPOINT + '/' + fileType;
         String publicKey = 'L82vG0W03qPXwNRXrl46';
         String authorization = UserInfo.getOrganizationId() + '.' + EncodingUtil.convertToHex(Crypto.generateDigest('MD5', Blob.valueOF(publicKey + '.' + UserInfo.getOrganizationId() + '.1ZAiTn3FVvgOpwWBbGl1FFSuwkl8lt9pxuE8Fj5uAqDpusZRXa')));
         HttpRequest req = new HttpRequest();
         req.setEndpoint(endPoint);
         req.setHeader('Content-Type', 'application/json');
+        req.setHeader('Accept', 'application/json');
         req.setHeader('Authorization', authorization);
         req.setMethod('POST');
         req.setBody(JSON.serialize(new FileIdentifier(metadataType, fileName)));
 
         HttpResponse res = new Http().send(req);
         
-        String url = res.getBody();
+        String url = (String) JSON.deserialize(res.getBody(), String.class);
         return url;
     }
 
@@ -32,18 +33,17 @@ public class S3Repository {
         req.setBody(xml);
 
         HttpResponse res = new Http().send(req);
-        system.debug(res.getStatus());
     }
 
     @future(callout=true)
-    public static void deleteXmlFilesFromS3(String metadataType, List<String> fileNamesToDelete) {
+    public static void deleteXmlFilesFromS3(String fileType, String metadataType, List<String> fileNamesToDelete) {
         List<FileIdentifier> fileIds = new List<FileIdentifier>();
         for (String fileName: fileNamesToDelete) {
             fileIds.add(new FileIdentifier(metadataType, fileName));
         }
 
         // temporary for standalone 
-        String endpoint = 'https://5d4b-172-114-128-36.ngrok.io/' + S3_DELETE_FILES_ENDPOINT;
+        String endpoint = 'https://a5f2-172-114-128-36.ngrok.io/' + S3_DELETE_FILES_ENDPOINT + '/' + fileType;
         String publicKey = 'L82vG0W03qPXwNRXrl46';
         String authorization = UserInfo.getOrganizationId() + '.' + EncodingUtil.convertToHex(Crypto.generateDigest('MD5', Blob.valueOF(publicKey + '.' + UserInfo.getOrganizationId() + '.1ZAiTn3FVvgOpwWBbGl1FFSuwkl8lt9pxuE8Fj5uAqDpusZRXa')));
         HttpRequest req = new HttpRequest();
@@ -55,8 +55,6 @@ public class S3Repository {
         req.setBody(JSON.serialize(fileIds));
 
         HttpResponse res = new Http().send(req);
-        system.debug(res.getStatus());
-        system.debug(res.getBody());
     }
 
     class FileIdentifier {
