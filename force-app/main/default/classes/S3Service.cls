@@ -6,7 +6,16 @@ public class S3Service {
     private static final String S3_DELETE_FILES_ENDPOINT = 'api/v1/salesforce/s3Files';
     private static final Integer S3_API_TIMEOUT = 30000;
 
-    public static String getS3SignedUrl(String fileType, String metadataType, String fileName) {
+    public static void uploadToS3(String metadataType, String fileType, String fileName, String fileBody) {
+        try {
+            String url = getS3SignedUrl(fileType, metadataType, fileName);
+            putXmlToS3(url, fileBody);
+        } catch (S3ServiceException e) {
+
+        }
+    }
+
+    private static String getS3SignedUrl(String fileType, String metadataType, String fileName) {
         // temporary for standalone; will be replace by call to Elements makeRequest()
         String endpoint = 'https://a5f2-172-114-128-36.ngrok.io/' + S3_SIGNED_URL_ENDPOINT + '/' + fileType;
         String publicKey = 'L82vG0W03qPXwNRXrl46';
@@ -19,14 +28,17 @@ public class S3Service {
         req.setMethod('POST');
         req.setBody(JSON.serialize(new FileIdentifier(metadataType, fileName)));
 
-        HttpResponse res = new Http().send(req);
-        
-        String url = (String) JSON.deserialize(res.getBody(), String.class);
+        String url;
+        try {
+            HttpResponse res = new Http().send(req);
+            String url = (String) JSON.deserialize(res.getBody(), String.class);
+        } catch (Exception e) {
+            throw new S3ServiceException('S3Service: URL_ERROR: ' + e.getMessage());
+        }
         return url;
     }
 
-    // TODO: throw an exception if there is an error writing to S3
-    public static void putXmlToS3(String url, String xml) {
+    private static void putXmlToS3(String url, String xml) {
         HttpRequest req = new HttpRequest();
         req.setEndpoint(url);
         req.setHeader('Content-Type', 'text/xml');
@@ -34,7 +46,15 @@ public class S3Service {
         req.setBody(xml);
         req.setTimeout(S3_API_TIMEOUT);
 
-        HttpResponse res = new Http().send(req);
+        HttpResponse res;
+        try {
+            res = new Http().send(req);
+            if (res.getStatusCode() != 200) {
+                throw new S3ServiceException('S3Service: PUT_TO_S3_ERROR: ' + res.getBody());
+            }
+        } catch (Exception e) {
+            throw new S3ServiceException('S3Service: PUT_TO_S3_ERROR: ' + e.getMessage());
+        }
     }
 
     @future(callout=true)

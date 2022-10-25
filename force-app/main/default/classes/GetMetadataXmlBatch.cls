@@ -5,7 +5,6 @@ public class GetMetadataXmlBatch
 
     private static final String FILE_TYPE = 'xml';
 
-    private List<String> unprocessedFiles = new List<String>();
     private List<String> timedOutFiles = new List<String>();
     private Map<String, Datetime> lastSavedDatetimes = new Map<String, Datetime>();
     private String sessionId;
@@ -25,7 +24,8 @@ public class GetMetadataXmlBatch
     public void execute(Database.BatchableContext ctx, List<String> encodedFullNames){
         system.debug(encodedFullNames);
 
-        // by design, there should only ever be a single chunk (ie, a single list of profile fullNames)
+        // currently, there should only ever be a single chunk (ie, a single profile fullName)
+        // TODO: figure out how to handle readMetadata() requests with multiple fullNames (but not > 10!)
         if (encodedFullNames.size() != 1) {
             system.debug('trying to process ' + encodedFullNames.size() + 'profiles.');
             return;
@@ -36,17 +36,13 @@ public class GetMetadataXmlBatch
         try {
             String xml = readMetadataApi.executeRequest();
             String fileName = MetadataXmlBatchHelper.getFileName(encodedFullName);
-            String url = S3Service.getS3SignedUrl(FILE_TYPE, this.metadataType, fileName);
-            S3Service.putXmlToS3(url, xml);
+            S3Service.uploadToS3(this.metadataType, FILE_TYPE, fileName, xml);
             lastSavedDatetimes.put(encodedFullName, Datetime.now());
         } catch (MetadataService.MetadataServiceException e) {
-            if (e.getMessage() == 'Read timed out') {
-                this.timedOutFiles.add(encodedFullName);
-            } else {
-                this.unprocessedFiles.add(encodedFullName);    
-            }
+            if (e.getMessage() == 'Read timed out') this.timedOutFiles.add(encodedFullName);
+            // log the error
         } catch (S3Service.S3ServiceException e) {
-            this.unprocessedFiles.add(encodedFullName);
+            // log the error
         }
     }
 
@@ -58,8 +54,6 @@ public class GetMetadataXmlBatch
         if (!this.timedOutFiles.isEmpty()) {
             MetadataXmlBatchHelper.markTooBig(this.metadataType, this.timedOutFiles);
         }
-
-        // TODO: add unprocessedFiles handling
     }
 
     class Parameters {
