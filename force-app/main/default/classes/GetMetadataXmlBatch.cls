@@ -48,7 +48,7 @@ public class GetMetadataXmlBatch
 
     public void finish(Database.BatchableContext ctx){
         if (!this.lastSavedDatetimes.keySet().isEmpty()) {
-            MetadataXmlBatchHelper.persistLastSavedDatetimes(this.metadataType, this.lastSavedDatetimes);
+            MetadataXmlBatchHelper.updateLastSavedDatetimes(this.metadataType, this.lastSavedDatetimes);
         }
 
         if (!this.timedOutFiles.isEmpty()) {

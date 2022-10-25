@@ -28,14 +28,13 @@ public class S3Service {
         req.setMethod('POST');
         req.setBody(JSON.serialize(new FileIdentifier(metadataType, fileName)));
 
-        String url;
         try {
             HttpResponse res = new Http().send(req);
             String url = (String) JSON.deserialize(res.getBody(), String.class);
+            return url;
         } catch (Exception e) {
             throw new S3ServiceException('S3Service: URL_ERROR: ' + e.getMessage());
         }
-        return url;
     }
 
     private static void putXmlToS3(String url, String xml) {
@@ -46,9 +45,8 @@ public class S3Service {
         req.setBody(xml);
         req.setTimeout(S3_API_TIMEOUT);
 
-        HttpResponse res;
         try {
-            res = new Http().send(req);
+            HttpResponse res = new Http().send(req);
             if (res.getStatusCode() != 200) {
                 throw new S3ServiceException('S3Service: PUT_TO_S3_ERROR: ' + res.getBody());
             }

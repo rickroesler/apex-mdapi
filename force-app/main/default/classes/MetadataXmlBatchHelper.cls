@@ -41,7 +41,7 @@ public class MetadataXmlBatchHelper {
         return itemsToUpdate;
     }
 
-    public static void persistLastSavedDatetimes(String metadataType, Map<String, Datetime> lastSavedDatetimes) {
+    public static void updateLastSavedDatetimes(String metadataType, Map<String, Datetime> lastSavedDatetimes) {
         List<Metadata_Item__c> items = [SELECT Id, Encoded_FullName__c, Last_Saved_Datetime__c
                                           FROM Metadata_Item__c
                                          WHERE Encoded_FullName__c IN :lastSavedDatetimes.keySet()
