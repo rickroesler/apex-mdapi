@@ -7,7 +7,7 @@ public class BatchLaunchRequest implements Schedulable {
         System.enqueueJob(new ElementsNotification());
     }
 
-    class ElementsNotification implements Queueable, Database.AllowsCallouts {
+    @TestVisible class ElementsNotification implements Queueable, Database.AllowsCallouts {
         private final String BATCH_LAUNCH_REQUEST_ENDPOINT = '/api/v1/salesforce/batch/launchRequest';
 
         public void execute(QueueableContext ctx) {
@@ -18,7 +18,7 @@ public class BatchLaunchRequest implements Schedulable {
             }
         }
 
-        private void sendReadyNotificationToElements() {
+        @TestVisible private ElementsApi.Result sendReadyNotificationToElements() {
             String body = '{}'; // currently no information is sent to PKServer about the batch job to be launched
 
             ElementsApi.Result result = ElementsApi.makeRequest(
@@ -30,6 +30,8 @@ public class BatchLaunchRequest implements Schedulable {
             );
 
             if (!result.isSuccess()) throw new BatchLaunchRequestException('BatchLaunchRequest: ' + result.getErrorMessage());
+    
+            return result;
         }
     }
 }

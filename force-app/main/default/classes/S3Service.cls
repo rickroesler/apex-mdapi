@@ -15,7 +15,7 @@ public class S3Service {
         }
     }
 
-    private static String getS3SignedUrl(String fileType, String metadataType, String fileName) {
+    @TestVisible private static String getS3SignedUrl(String fileType, String metadataType, String fileName) {
         try {
             ElementsApi.Result result = ElementsApi.makeRequest(
                 'Get S3 Signed Url',
@@ -43,9 +43,9 @@ public class S3Service {
         req.setTimeout(S3_API_TIMEOUT);
 
         try {
-            HttpResponse res = new Http().send(req);
-            if (res.getStatusCode() != 200) {
-                throw new S3ServiceException('S3Service: PUT_TO_S3_ERROR: ' + res.getBody());
+            if (!Test.isRunningTest()) {
+                HttpResponse res = new Http().send(req);
+                if (res.getStatusCode() != 200) throw new S3ServiceException('S3Service: PUT_TO_S3_ERROR: ' + res.getBody());
             }
         } catch (Exception e) {
             throw new S3ServiceException('S3Service: PUT_TO_S3_ERROR: ' + e.getMessage());
@@ -53,7 +53,7 @@ public class S3Service {
     }
 
     @future(callout=true)
-    public static void deleteXmlFilesFromS3(String fileType, String metadataType, List<String> fileNamesToDelete) {
+    public static void deleteFilesFromS3(String fileType, String metadataType, List<String> fileNamesToDelete) {
         List<FileIdentifier> fileIds = new List<FileIdentifier>();
         for (String fileName: fileNamesToDelete) {
             fileIds.add(new FileIdentifier(metadataType, fileName));

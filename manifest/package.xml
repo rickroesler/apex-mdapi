@@ -3,11 +3,13 @@
     <types>
         <members>BatchLaunchREST</members>
         <members>BatchLaunchRequest</members>
+        <members>BatchLaunchRequestTest</members>
         <members>GetMetadataXmlBatch</members>
         <members>ListMetadataApi</members>
         <members>MetadataXmlBatchHelper</members>
         <members>ReadMetadataApi</members>
         <members>S3Service</members>
+        <members>S3ServiceTest</members>
         <members>MetadataService</members>
         <name>ApexClass</name>
     </types>
