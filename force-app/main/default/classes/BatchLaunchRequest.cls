@@ -8,7 +8,7 @@ public class BatchLaunchRequest implements Schedulable {
     }
 
     class ElementsNotification implements Queueable, Database.AllowsCallouts {
-        private final String BATCH_LAUNCH_REQUEST_ENDPOINT = 'api/v1/salesforce/batch/launchRequest';
+        private final String BATCH_LAUNCH_REQUEST_ENDPOINT = '/api/v1/salesforce/batch/launchRequest';
 
         public void execute(QueueableContext ctx) {
             try {
@@ -19,20 +19,17 @@ public class BatchLaunchRequest implements Schedulable {
         }
 
         private void sendReadyNotificationToElements() {
-            // temporary for standalone; will be replace by call to Elements makeRequest()
-            String endpoint = 'https://a5f2-172-114-128-36.ngrok.io/' + BATCH_LAUNCH_REQUEST_ENDPOINT;
-            String publicKey = 'L82vG0W03qPXwNRXrl46';
-            String authorization = UserInfo.getOrganizationId() + '.' + EncodingUtil.convertToHex(Crypto.generateDigest('MD5', Blob.valueOF(publicKey + '.' + UserInfo.getOrganizationId() + '.1ZAiTn3FVvgOpwWBbGl1FFSuwkl8lt9pxuE8Fj5uAqDpusZRXa')));
-            HttpRequest req = new HttpRequest();
-            req.setEndpoint(endPoint);
-            req.setHeader('Content-Type', 'application/json');
-            req.setHeader('Authorization', authorization);
-            req.setMethod('POST');
-            req.setBody('{}'); // currently no information is sent to PKServer about the batch job to be launched
+            String body = '{}'; // currently no information is sent to PKServer about the batch job to be launched
 
-            HttpResponse res = new Http().send(req);
+            ElementsApi.Result result = ElementsApi.makeRequest(
+                'Batch Launch Request',
+                'POST',
+                ElementsUtils.getApiEndpoint(BATCH_LAUNCH_REQUEST_ENDPOINT),
+                null,
+                body
+            );
 
-            if (res.getStatusCode() != 200) throw new BatchLaunchRequestException(res.getStatus() + ': ' + res.getBody());
+            if (!result.isSuccess()) throw new BatchLaunchRequestException('BatchLaunchRequest: ' + result.getErrorMessage());
         }
     }
 }
