@@ -9,13 +9,25 @@ public class BatchLaunchRequest implements Schedulable {
 
     @TestVisible class ElementsNotification implements Queueable, Database.AllowsCallouts {
         private final String BATCH_LAUNCH_REQUEST_ENDPOINT = '/api/v1/salesforce/batch/launchRequest';
-
+        private final List<String> BATCH_RUNNING_STATUSES = new List<String>{'Holding','Queued','Preparing','Processing'};
+        private final String BATCH_CLASS_NAME = 'GetMetadataXmlBatch';
+        private final String BATCH_CLASS_NAMESPACE = 'Q9';
+    
         public void execute(QueueableContext ctx) {
             try {
-                sendReadyNotificationToElements();
+                if (!isBatchRunning(BATCH_CLASS_NAMESPACE, BATCH_CLASS_NAME)) sendReadyNotificationToElements();
             } catch(Exception e) {
                 system.debug(e.getTypeName() + ': ' + e.getMessage());
             }
+        }
+
+        private Boolean isBatchRunning(String batchClassNamespace, String batchClassName) {
+            List<AsyncApexJob> batchJobs = [SELECT Id
+                                              FROM AsyncApexJob
+                                             WHERE ApexClass.NamespacePrefix = :batchClassNamespace
+                                               AND ApexClass.Name = :batchClassName
+                                               AND Status IN :BATCH_RUNNING_STATUSES];
+            return (!batchJobs.isEmpty());
         }
 
         @TestVisible private ElementsApi.Result sendReadyNotificationToElements() {
