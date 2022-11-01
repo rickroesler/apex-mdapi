@@ -71,7 +71,7 @@ public class S3Service {
             if (!result.isSuccess()) throw new S3ServiceException('S3Service: FILE_DELETE_ERROR: ' + result.getErrorMessage());
 
             DeleteResult deleteResult = (DeleteResult) JSON.deserialize(result.returnJson, DeleteResult.class);
-            if (deleteResult.Errors != null) {
+            if (deleteResult.Errors != null && !deleteResult.Errors.isEmpty()) {
                 List<String> keys;
                 for (DeleteError e: deleteResult.Errors) {
                     keys.add(e.Key);
