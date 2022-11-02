@@ -92,12 +92,21 @@ public class MetadataXmlBatchHelper {
     
 
     private void processNewItems(Map<Id, MetadataItemWrapper> currentItems, Map<Id, MetadataItemWrapper> savedItems) {
-        // TODO: handle case where a new item is created with the same fullName as a previously-deleted item
-        // make a list of fullnames of the new items
-        // select saved items that are deleted with those fullnames
-        // if there's a match handle those ids/fullnames separately
         Set<Id> newIds = currentItems.keySet().clone();
         newIds.removeAll(savedItems.keySet());  // the set of current items that are not yet saved
+
+        List<String> newEncodedFullNames = new List<String>();
+        for (Id newId: newIds) {
+            newEncodedFullNames.add(currentItems.get(newId).encodedFullName);
+        }
+
+        // remove "is deleted" records if we've created a new Profile with the same name as one previously-deleted
+        List<Metadata_Item__c> duplicates = [SELECT Id
+                                               FROM Metadata_Item__c
+                                              WHERE Encoded_FullName__c IN :newEncodedFullNames
+                                                AND Is_Deleted__c = true
+                                                AND Metadata_Type__c = :this.metadataType];
+        delete duplicates;
 
         List<Metadata_Item__c> newItems = new List<Metadata_Item__c>();
         for (Id newId: newIds) {
@@ -162,7 +171,7 @@ public class MetadataXmlBatchHelper {
                         hasName = true;
                     }
                     when 'lastModifiedDate' {
-                        item.lastModifiedDatetime = (Datetime) JSON.deserialize(element.getText(), Datetime.class);
+                        item.lastModifiedDatetime = Datetime.valueOfGmt(element.getText().replace('T', ' ').replace('.000Z', ''));
                         hasDate = true;
                     }
                 }   
