@@ -36,6 +36,7 @@ public class GetMetadataXmlBatch
         try {
             String xml = readMetadataApi.executeRequest();
             String fileName = MetadataXmlBatchHelper.getFileName(encodedFullName);
+            // TODO: compare xml hash with stored hash; only upload if they're different
             S3Service.uploadToS3(this.metadataType, FILE_TYPE, fileName, xml);
             lastSavedDatetimes.put(encodedFullName, Datetime.now());
         } catch (MetadataService.MetadataServiceException e) {
@@ -56,8 +57,8 @@ public class GetMetadataXmlBatch
         }
     }
 
-    class Parameters {
-        String sessionId;
-        String metadataType;
-    }
+    // class Parameters {
+    //     String sessionId;
+    //     String metadataType;
+    // }
 }

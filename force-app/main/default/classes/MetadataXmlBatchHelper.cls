@@ -26,17 +26,18 @@ public class MetadataXmlBatchHelper {
     }
 
     /**
-     * returns List<String> list of encoded Profile names whose Last_Saved_Datetime < Last_Modified_Datetime
+     * returns List<String> list of all existing encoded Profile names
      */
     public List<String> getItemsToUpdate() {
         List<String> itemsToUpdate = new List<String>();
         for (Metadata_Item__c item: [SELECT Encoded_FullName__c,
                                             Last_Saved_Datetime__c, Last_Modified_Datetime__c
                                        FROM Metadata_Item__c
-                                      WHERE Metadata_Type__c = :this.metadataType]) {
-            if (item.Last_Saved_Datetime__c == null || item.Last_Saved_Datetime__c < item.Last_Modified_Datetime__c) {
+                                      WHERE Metadata_Type__c = :this.metadataType
+                                        AND Is_Deleted__c = false]) {
+            // if (item.Last_Saved_Datetime__c == null || item.Last_Saved_Datetime__c < item.Last_Modified_Datetime__c) {
                 itemsToUpdate.add(item.Encoded_FullName__c);
-            }
+            // }
         }
         return itemsToUpdate;
     }
@@ -114,7 +115,7 @@ public class MetadataXmlBatchHelper {
             Metadata_Item__c item = new Metadata_Item__c();
                 item.Metadata_Type__c = this.metadataType;
                 item.Salesforce_Id__c = newId;
-                item.Last_Modified_Datetime__c = currentItem.lastModifiedDatetime;
+                // item.Last_Modified_Datetime__c = currentItem.lastModifiedDatetime;
                 item.Encoded_FullName__c = currentItem.encodedFullName;
                 item.Is_Deleted__c = false;
                 item.Last_Saved_Datetime__c = null;
@@ -127,13 +128,13 @@ public class MetadataXmlBatchHelper {
         Set<Id> existingIds = currentItems.keySet().clone();
         existingIds.retainAll(savedItems.keySet()); // the set of current items that have already been saved
 
-        List<Metadata_Item__c> existingItems = [SELECT Id, Salesforce_Id__c, Last_Modified_Datetime__c, Is_Deleted__c 
+        List<Metadata_Item__c> existingItems = [SELECT Id, Salesforce_Id__c, Is_Deleted__c //, Last_Modified_Datetime__c  
                                                   FROM Metadata_Item__c
                                                  WHERE Salesforce_Id__c IN :existingIds];
         for (Metadata_Item__c item: existingItems) {
             MetadataItemWrapper currentItem = currentItems.get(item.Salesforce_Id__c);
             item.Encoded_FullName__c = currentItem.encodedFullName;
-            item.Last_Modified_Datetime__c = currentItems.get(item.Salesforce_Id__c).lastModifiedDatetime;
+            // item.Last_Modified_Datetime__c = currentItems.get(item.Salesforce_Id__c).lastModifiedDatetime;
             item.Is_Deleted__c = false;
         }
         update existingItems;
@@ -158,7 +159,7 @@ public class MetadataXmlBatchHelper {
         for (Dom.XmlNode result: results) {
             Boolean hasId = false;
             Boolean hasName = false;
-            Boolean hasDate = false;
+            // Boolean hasDate = false;
             MetadataItemWrapper item = new MetadataItemWrapper();
             for (Dom.XmlNode element: result.getChildElements()) {
                 switch on element.getName() {
@@ -170,13 +171,14 @@ public class MetadataXmlBatchHelper {
                         item.encodedFullName = element.getText();
                         hasName = true;
                     }
-                    when 'lastModifiedDate' {
-                        item.lastModifiedDatetime = Datetime.valueOfGmt(element.getText().replace('T', ' ').replace('.000Z', ''));
-                        hasDate = true;
-                    }
+                    // when 'lastModifiedDate' {
+                    //     item.lastModifiedDatetime = Datetime.valueOfGmt(element.getText().replace('T', ' ').replace('.000Z', ''));
+                    //     hasDate = true;
+                    // }
                 }   
             }
-            if (hasId && hasName && hasDate) {
+            // if (hasId && hasName && hasDate) {
+            if (hasId && hasName) {
                 currentItems.put(item.salesforceId, item);
             }
         }
@@ -192,8 +194,8 @@ public class MetadataXmlBatchHelper {
     private Map<Id, MetadataItemWrapper> getSavedItems() {
         Map<Id, MetadataItemWrapper> savedItems = new Map<Id, MetadataItemWrapper>();
 
-        List<Metadata_Item__c> items = [SELECT Id, Encoded_FullName__c, Salesforce_Id__c, Is_Deleted__c, 
-                                               Last_Saved_Datetime__c, Last_Modified_Datetime__c
+        List<Metadata_Item__c> items = [SELECT Id, Encoded_FullName__c, Salesforce_Id__c, Is_Deleted__c,  
+                                               Last_Saved_Datetime__c //, Last_Modified_Datetime__c
                                           FROM Metadata_Item__c
                                          WHERE Metadata_Type__c = :this.metadataType];
         
@@ -202,7 +204,7 @@ public class MetadataXmlBatchHelper {
                 mi.salesforceId = item.Salesforce_Id__c;
                 mi.encodedFullName = item.Encoded_FullName__c;
                 mi.lastSavedDatetime = item.Last_Saved_Datetime__c;
-                mi.lastModifiedDatetime = item.Last_Modified_Datetime__c;
+                // mi.lastModifiedDatetime = item.Last_Modified_Datetime__c;
                 mi.isDeleted = item.Is_Deleted__c;
             savedItems.put(mi.salesforceId, mi);
         }
@@ -214,6 +216,6 @@ public class MetadataXmlBatchHelper {
         Id salesforceId;
         Boolean isDeleted;
         Datetime lastSavedDatetime;
-        Datetime lastModifiedDatetime;
+        // Datetime lastModifiedDatetime;
     }
 }
