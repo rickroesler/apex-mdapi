@@ -6,4 +6,8 @@
         <field>Batch_Size_Default__c</field>
         <value xsi:type="xsd:double">1.0</value>
     </values>
+    <values>
+        <field>Ignore_LastModifiedDate__c</field>
+        <value xsi:type="xsd:boolean">true</value>
+    </values>
 </CustomMetadata>

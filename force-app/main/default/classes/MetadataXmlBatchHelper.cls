@@ -3,54 +3,75 @@ public class MetadataXmlBatchHelper {
     private static final Integer SOAP_TIMEOUT = 120000;
     private static final String FILE_TYPE = 'xml';
 
+    // private static Map<String, Metadata_Type__mdt> metadataTypes = Metadata_Type__mdt.getAll();
     private String sessionId;
     private String metadataType;
+    private Boolean ignoreLastModifiedDate;
+    private Map<String, Integer> hashMap;
+    private List<String> itemsToUpdate;
 
     public MetadataXmlBatchHelper(String sessionId, String metadataType) {
+        
+        // if (!metadataTypes.keySet().contains(metadataType)) {
         if (!Metadata_Type__mdt.getAll().keySet().contains(metadataType)) {
             throw new GetMetadataXmlBatch.MetadataXmlBatchException('UNSUPPORTED METADATA TYPE: ' + metadataType);
         }
 
-        this.metadataType = metadataType;
         this.sessionId = sessionId;
+        this.metadataType = metadataType;
+        // this.ignoreLastModifiedDate = metadataTypes.get(metadataType).Ignore_LastModifiedDate__c;
+        this.ignoreLastModifiedDate = Metadata_Type__mdt.getInstance(metadataType).Ignore_LastModifiedDate__c;
+        this.hashMap  = new Map<String, Integer>();
+        this.itemsToUpdate = new List<String>();
 
         Map<Id, MetadataItemWrapper> currentItems = getCurrentItems();
         Map<Id, MetadataItemWrapper> savedItems = getSavedItems();
         processDeletedItems(currentItems, savedItems);
         processNewItems(currentItems, savedItems);
         processExistingItems(currentItems, savedItems);
+        processItemsToUpdate();
     }
 
     public static String getFileName(String encodedFullName) {
-        return EncodingUtil.urlDecode(encodedFullName, 'UTF-8') + '.xml';
+        return encodedFullName + '.xml';
     }
 
-    /**
-     * returns List<String> list of all existing encoded Profile names
-     */
+    public Boolean getIgnoreLastModifiedDate() {
+        return this.ignoreLastModifiedDate;
+    }
+
+    public Map<String, Integer> getHashMap() {
+        return this.hashMap;
+    }
+
     public List<String> getItemsToUpdate() {
-        List<String> itemsToUpdate = new List<String>();
+        return this.itemsToUpdate;
+    }
+
+    private void processItemsToUpdate() {
         for (Metadata_Item__c item: [SELECT Encoded_FullName__c,
-                                            Last_Saved_Datetime__c, Last_Modified_Datetime__c
+                                            Last_Saved_Datetime__c, Last_Modified_Datetime__c, Hash__c
                                        FROM Metadata_Item__c
                                       WHERE Metadata_Type__c = :this.metadataType
                                         AND Is_Deleted__c = false]) {
-            // if (item.Last_Saved_Datetime__c == null || item.Last_Saved_Datetime__c < item.Last_Modified_Datetime__c) {
-                itemsToUpdate.add(item.Encoded_FullName__c);
-            // }
+            if (this.ignoreLastModifiedDate || item.Last_Saved_Datetime__c == null || item.Last_Saved_Datetime__c < item.Last_Modified_Datetime__c) {
+                this.itemsToUpdate.add(item.Encoded_FullName__c);
+                this.hashMap.put(item.Encoded_FullName__c, Integer.valueOf(item.Hash__c));
+            }
         }
-        return itemsToUpdate;
     }
 
-    public static void updateLastSavedDatetimes(String metadataType, Map<String, Datetime> lastSavedDatetimes) {
-        List<Metadata_Item__c> items = [SELECT Id, Encoded_FullName__c, Last_Saved_Datetime__c
-                                          FROM Metadata_Item__c
-                                         WHERE Encoded_FullName__c IN :lastSavedDatetimes.keySet()
-                                           AND Metadata_Type__c = :metadataType];
-        for (Metadata_Item__c item: items) {
-            item.Last_Saved_Datetime__c = lastSavedDatetimes.get(item.Encoded_FullName__c);
+    public static void updateSavedMetadataItems(String metadataType, Map<String, MetadataItemWrapper> items) {
+        List<Metadata_Item__c> metadataItems = [SELECT Id, Encoded_FullName__c, Last_Saved_Datetime__c, Hash__c
+                                                  FROM Metadata_Item__c
+                                                 WHERE Encoded_FullName__c IN :items.keySet()
+                                                   AND Metadata_Type__c = :metadataType];
+        for (Metadata_Item__c metadataItem: metadataItems) {
+            MetadataItemWrapper item = items.get(metadataItem.Encoded_FullName__c);
+            metadataItem.Last_Saved_Datetime__c = item.lastSavedDatetime;
+            metadataItem.Hash__c = item.hash;
         }
-        update items;
+        update metadataItems;
     }
 
     public static void markTooBig(String metadataType, List<String> encodedFullNames) {
@@ -90,8 +111,6 @@ public class MetadataXmlBatchHelper {
         S3Service.deleteFilesFromS3(FILE_TYPE, this.metadataType, fileNamesToDelete);
     }
 
-    
-
     private void processNewItems(Map<Id, MetadataItemWrapper> currentItems, Map<Id, MetadataItemWrapper> savedItems) {
         Set<Id> newIds = currentItems.keySet().clone();
         newIds.removeAll(savedItems.keySet());  // the set of current items that are not yet saved
@@ -115,7 +134,7 @@ public class MetadataXmlBatchHelper {
             Metadata_Item__c item = new Metadata_Item__c();
                 item.Metadata_Type__c = this.metadataType;
                 item.Salesforce_Id__c = newId;
-                // item.Last_Modified_Datetime__c = currentItem.lastModifiedDatetime;
+                item.Last_Modified_Datetime__c = currentItem.lastModifiedDatetime;
                 item.Encoded_FullName__c = currentItem.encodedFullName;
                 item.Is_Deleted__c = false;
                 item.Last_Saved_Datetime__c = null;
@@ -128,13 +147,13 @@ public class MetadataXmlBatchHelper {
         Set<Id> existingIds = currentItems.keySet().clone();
         existingIds.retainAll(savedItems.keySet()); // the set of current items that have already been saved
 
-        List<Metadata_Item__c> existingItems = [SELECT Id, Salesforce_Id__c, Is_Deleted__c //, Last_Modified_Datetime__c  
+        List<Metadata_Item__c> existingItems = [SELECT Id, Salesforce_Id__c, Is_Deleted__c, Last_Modified_Datetime__c  
                                                   FROM Metadata_Item__c
                                                  WHERE Salesforce_Id__c IN :existingIds];
         for (Metadata_Item__c item: existingItems) {
             MetadataItemWrapper currentItem = currentItems.get(item.Salesforce_Id__c);
             item.Encoded_FullName__c = currentItem.encodedFullName;
-            // item.Last_Modified_Datetime__c = currentItems.get(item.Salesforce_Id__c).lastModifiedDatetime;
+            item.Last_Modified_Datetime__c = currentItems.get(item.Salesforce_Id__c).lastModifiedDatetime;
             item.Is_Deleted__c = false;
         }
         update existingItems;
@@ -148,6 +167,8 @@ public class MetadataXmlBatchHelper {
     public Map<Id, MetadataItemWrapper> getCurrentItems() {
         Map<Id, MetadataItemWrapper> currentItems = new Map<Id, MetadataItemWrapper>();
 
+        if (Test.isRunningTest()) return currentItems;
+
         ListMetadataApi listMetadataApi = new ListMetadataApi(this.sessionId, this.metadataType);
 
         Dom.Document doc = new Dom.Document();
@@ -159,7 +180,7 @@ public class MetadataXmlBatchHelper {
         for (Dom.XmlNode result: results) {
             Boolean hasId = false;
             Boolean hasName = false;
-            // Boolean hasDate = false;
+            Boolean hasDate = false;
             MetadataItemWrapper item = new MetadataItemWrapper();
             for (Dom.XmlNode element: result.getChildElements()) {
                 switch on element.getName() {
@@ -171,14 +192,13 @@ public class MetadataXmlBatchHelper {
                         item.encodedFullName = element.getText();
                         hasName = true;
                     }
-                    // when 'lastModifiedDate' {
-                    //     item.lastModifiedDatetime = Datetime.valueOfGmt(element.getText().replace('T', ' ').replace('.000Z', ''));
-                    //     hasDate = true;
-                    // }
+                    when 'lastModifiedDate' {
+                        item.lastModifiedDatetime = Datetime.valueOfGmt(element.getText().replace('T', ' ').replace('.000Z', ''));
+                        hasDate = true;
+                    }
                 }   
             }
-            // if (hasId && hasName && hasDate) {
-            if (hasId && hasName) {
+            if (hasId && hasName && hasDate) {
                 currentItems.put(item.salesforceId, item);
             }
         }
@@ -195,7 +215,7 @@ public class MetadataXmlBatchHelper {
         Map<Id, MetadataItemWrapper> savedItems = new Map<Id, MetadataItemWrapper>();
 
         List<Metadata_Item__c> items = [SELECT Id, Encoded_FullName__c, Salesforce_Id__c, Is_Deleted__c,  
-                                               Last_Saved_Datetime__c //, Last_Modified_Datetime__c
+                                               Last_Saved_Datetime__c, Last_Modified_Datetime__c, Hash__c
                                           FROM Metadata_Item__c
                                          WHERE Metadata_Type__c = :this.metadataType];
         
@@ -204,18 +224,20 @@ public class MetadataXmlBatchHelper {
                 mi.salesforceId = item.Salesforce_Id__c;
                 mi.encodedFullName = item.Encoded_FullName__c;
                 mi.lastSavedDatetime = item.Last_Saved_Datetime__c;
-                // mi.lastModifiedDatetime = item.Last_Modified_Datetime__c;
+                mi.lastModifiedDatetime = item.Last_Modified_Datetime__c;
                 mi.isDeleted = item.Is_Deleted__c;
+                mi.hash = Integer.valueOf(item.Hash__c);
             savedItems.put(mi.salesforceId, mi);
         }
         return savedItems;
     }
 
-    class MetadataItemWrapper {
-        String encodedFullName;
-        Id salesforceId;
-        Boolean isDeleted;
-        Datetime lastSavedDatetime;
-        // Datetime lastModifiedDatetime;
+    public class MetadataItemWrapper {
+        public String encodedFullName;
+        public Id salesforceId;
+        public Boolean isDeleted;
+        public Datetime lastSavedDatetime;
+        public Datetime lastModifiedDatetime;
+        public Integer hash;
     }
 }

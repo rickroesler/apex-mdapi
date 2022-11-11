@@ -7,6 +7,7 @@
         <members>GetMetadataXmlBatch</members>
         <members>ListMetadataApi</members>
         <members>MetadataXmlBatchHelper</members>
+        <members>MetadataXmlBatchHelperTest</members>
         <members>ReadMetadataApi</members>
         <members>S3Service</members>
         <members>S3ServiceTest</members>
@@ -21,7 +22,9 @@
         <members>Metadata_Item__c.Last_Saved_Datetime__c</members>
         <members>Metadata_Item__c.Metadata_Type__c</members>
         <members>Metadata_Item__c.Salesforce_Id__c</members>
+        <members>Metadata_Item__c.Hash__c</members>
         <members>Metadata_Type__mdt.Batch_Size_Default__c</members>
+        <members>Metadata_Type__mdt.Ignore_LastModifiedDate__c</members>
         <name>CustomField</name>
     </types>
     <types>

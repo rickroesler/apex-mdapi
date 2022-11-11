@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Ignore_LastModifiedDate__c</fullName>
+    <defaultValue>false</defaultValue>
+    <description>If true, does not use the metadata item&apos;s LastModifiedDate as a change indicator. For some metadata types like Profile and CustomValue, LastModifiedDate is either not reliable (Profile) or not available (CustomValue).</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <inlineHelpText>If true, does not use the metadata item&apos;s LastModifiedDate as a change indicator. For some metadata types like Profile and CustomValue, LastModifiedDate is either not reliable (Profile) or not available (CustomValue).</inlineHelpText>
+    <label>Ignore LastModifiedDate</label>
+    <type>Checkbox</type>
+</CustomField>
