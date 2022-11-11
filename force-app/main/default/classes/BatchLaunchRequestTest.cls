@@ -18,8 +18,8 @@ public class BatchLaunchRequestTest {
         ElementsSettingsController esc = (new ElementsSettingsControllerBundle()).esc;
 
         Test.startTest();
-        esc.profileLayoutScheduleHours = 0;
-        esc.profileLayoutScheduleMinutes = 0;
+        esc.profileMetadataScheduleHours = 0;
+        esc.profileMetadataScheduleMinutes = 0;
         esc.startProfileMetadataScheduleJob();
         Test.stopTest();
 
